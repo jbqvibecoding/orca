@@ -118,6 +118,12 @@ docs/**
 !docs/reference/wsl-command-execution.md
 !docs/reference/xterm-patch-regeneration.md
 
+# Fusion: the merge charter (architecture, capability matrix, licensing, ADRs).
+# Durable and linked from docs/fusion/README.md, so it is allow-listed like the
+# reference docs above rather than treated as a local planning note.
+!docs/fusion/
+!docs/fusion/**
+
 # Stably CLI (only docs/ are tracked)
 .stably/*
 !.stably/docs/
