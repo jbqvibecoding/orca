@@ -116,6 +116,7 @@ docs/**
 !docs/reference/windows-setup-shell.md
 !docs/reference/worktree-scan-fingerprint.md
 !docs/reference/wsl-command-execution.md
+!docs/reference/wake-index-platform-floor.md
 !docs/reference/xterm-patch-regeneration.md
 
 # Fusion: the merge charter (architecture, capability matrix, licensing, ADRs).
@@ -169,3 +170,8 @@ tests/e2e/.cross-version-checkouts/
 # IS committed). Also keeps oxfmt/oxlint, which honor this file, from walking
 # vendored gems.
 /mobile/vendor/
+
+# Session-index sidecar binary: a build output of `pnpm run build:session-index`
+# from a Wake checkout. resources/session-index/PROVENANCE.md IS committed.
+/resources/session-index/wake-index
+/resources/session-index/wake-index.exe

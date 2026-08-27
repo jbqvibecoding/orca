@@ -105,6 +105,19 @@ Acceptance gates:
   acceptance run            Run typecheck/test/lint over a workspace and record the verdict
   acceptance log            Show recent acceptance-gate events
 
+Workflows:
+  workflow list             List workflow documents and where each resolves from
+  workflow show             Show a workflow's phases, artifacts, and acceptance checks
+  workflow start            Put a task on a workflow, starting at its first phase
+  workflow status           Show a task's current phase and whether it can advance
+  workflow advance          Advance a task to its next phase
+
+Sessions (indexes this machine, including agents run outside Orca):
+  sessions search           Search across agent sessions, whatever tool created them
+  sessions list             List indexed agent sessions, most recently updated first
+  sessions reindex          Rescan this machine for agent sessions
+  sessions doctor           Report where the index lives and which agents it can read
+
 Orchestration:
   orchestration run-create  Create and bind a lightweight orchestration Run
   orchestration run-use     Bind this coordinator terminal to an existing Run
@@ -531,6 +544,26 @@ function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   // which is the wrong meaning here — this selects the account provider.
   if (command === 'account add' && flag === 'agent') {
     return '--agent <id>           Account provider: claude or codex (default claude)'
+  }
+  // Same reason, and the id vocabulary belongs to the index, not to Orca: run
+  // `orca sessions doctor` for the list this machine can actually read.
+  if (command.startsWith('sessions ') && flag === 'agent') {
+    return '--agent <id>           Only this agent, e.g. claude-code or codex; repeat for several'
+  }
+  if (command.startsWith('sessions ') && flag === 'project') {
+    return '--project <path>       Only sessions whose project path matches'
+  }
+  if (command === 'sessions search' && flag === 'query') {
+    return '--query <text>         Text to find in session messages (three or more characters)'
+  }
+  if (command === 'sessions list' && flag === 'title') {
+    return '--title <text>         Only sessions whose title matches'
+  }
+  if (command === 'sessions list' && flag === 'offset') {
+    return '--offset <n>           Rows to skip before the page'
+  }
+  if (command === 'sessions reindex' && flag === 'full') {
+    return '--full                 Re-read every session instead of only what changed'
   }
   if (flag === 'key' && command === 'computer hotkey') {
     return '--key <key-combo>      Modifier chord with one key, e.g. CmdOrCtrl+A'

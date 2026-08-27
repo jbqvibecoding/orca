@@ -45,6 +45,64 @@ SOFTWARE.
 
 ---
 
+## Wake
+
+- Upstream: https://github.com/iAmCorey/Wake, built from the fork at
+  https://github.com/jbqvibecoding/Wake
+- Used by: `resources/session-index/wake-index`, the cross-tool session-index
+  sidecar. It is built from Wake's `wake-core` crate rather than vendored as
+  source; build provenance is in
+  [`resources/session-index/PROVENANCE.md`](resources/session-index/PROVENANCE.md).
+  No Wake source is copied into this repository.
+- Licence: MIT
+
+**Modifications** (MIT does not require them to be listed; recorded because the
+build depends on them):
+
+- Added a `desktop` Cargo feature, on by default, and moved `wake-core`'s
+  `services` module and its `trash` / `windows-sys` dependencies behind it.
+  Orca builds with `--no-default-features` so the sidecar cannot move a user's
+  files to the recycle bin.
+- Added a `wake-index` binary target: a read-only query CLI whose JSON output is
+  the contract Orca parses.
+- Added a test that proves a full scan leaves every file under another tool's
+  directory unchanged in size and mtime.
+
+**On the bundled dependency tree**: the sidecar is a statically linked Rust
+binary, so its dependency closure ships inside it. That closure is
+overwhelmingly `MIT OR Apache-2.0`, with `instant` (BSD-3-Clause), `notify`
+(CC0-1.0) and `option-ext` (MPL-2.0). `option-ext` is the only weak-copyleft
+entry; it is used unmodified and its source remains available from crates.io,
+which is what MPL-2.0 §3.2 asks for. Per-crate notices are not reproduced here
+yet — that is an open gap in this file, not a claim that MIT covers the whole
+binary.
+
+```
+MIT License
+
+Copyright (c) 2026 Corey Chiu
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
 ## agtx
 
 - Upstream: https://github.com/jbqvibecoding/agtx

@@ -2,6 +2,11 @@
 
 import { spawnSync } from 'node:child_process'
 
+// Every platform gets the session index: it is the one native artifact that is
+// not platform-specific in purpose. It skips itself when the Rust toolchain or
+// the Wake checkout is absent, so it cannot block a build that never wanted it.
+runNodeScript('config/scripts/build-session-index.mjs')
+
 if (process.platform === 'win32') {
   runNodeScript('config/scripts/build-windows-cli-launcher.mjs')
   process.exit(0)

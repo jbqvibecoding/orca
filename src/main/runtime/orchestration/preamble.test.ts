@@ -310,6 +310,46 @@ describe('buildDispatchPreamble', () => {
     expect(result).toContain('=== PHASE: planning (pass 3) ===')
   })
 
+  // Same contract as phases: an agent with no memory yet pays nothing for the
+  // feature existing.
+  it('emits a byte-identical preamble when the agent has no memory', () => {
+    expect(buildDispatchPreamble(baseParams())).toBe(
+      buildDispatchPreamble(baseParams({ memory: undefined }))
+    )
+    expect(buildDispatchPreamble(baseParams())).not.toContain('WHAT YOU ALREADY KNOW')
+  })
+
+  it('treats whitespace-only memory as none', () => {
+    expect(
+      buildDispatchPreamble(baseParams({ memory: { path: 'ws/term/memory.md', text: '  \n ' } }))
+    ).toBe(buildDispatchPreamble(baseParams()))
+  })
+
+  // Before the task so it reads as context for the brief; a second block after
+  // it would compete with the brief for the agent's attention.
+  it('puts memory before the task and names the file to update', () => {
+    const result = buildDispatchPreamble(
+      baseParams({ memory: { path: 'ws_a/term_worker/memory.md', text: 'the build uses pnpm' } })
+    )
+    expect(result.indexOf('=== WHAT YOU ALREADY KNOW ===')).toBeGreaterThan(-1)
+    expect(result.indexOf('=== WHAT YOU ALREADY KNOW ===')).toBeLessThan(
+      result.indexOf('=== TASK ===')
+    )
+    expect(result).toContain('the build uses pnpm')
+    expect(result).toContain('ws_a/term_worker/memory.md')
+  })
+
+  // Memory is the agent's own notes and can be stale. Presenting it as fact
+  // would make a wrong note outrank what the agent can check right now.
+  it('frames memory as notes to verify, not as instructions', () => {
+    const result = buildDispatchPreamble(
+      baseParams({ memory: { path: 'ws/term/memory.md', text: 'x' } })
+    )
+    expect(result).toContain('not\ninstructions')
+    expect(result).toContain('prefer what you can verify now')
+    expect(result).toContain('do not write secrets into it')
+  })
+
   it('renders a stable snapshot of the full preamble', () => {
     // Why: single strict snapshot catches any accidental regression in
     // formatting or rule presence in one line.

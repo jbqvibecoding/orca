@@ -2,6 +2,7 @@
 import type { OrchestrationDb } from './db'
 import type { TaskRow } from './types'
 import { buildDispatchPreamble } from './preamble'
+import { loadDispatchMemory } from '../../agent-memory/dispatch-memory'
 import type { CoordinatorRuntime, WorktreeDrift } from './coordinator-runtime-contract'
 import {
   DISPATCH_STALE_THRESHOLD,
@@ -108,6 +109,11 @@ export async function dispatchTaskToWorker(params: {
   // needs no workspace access and no async document lookup on its hot path.
   const phaseRow = db.getTaskPhase(task.id)
 
+  // Why here and not in the preamble builder: reading it is I/O, and an agent
+  // with no memory yet must cost nothing. Absent or unreadable memory yields
+  // null and the preamble is byte-identical to before.
+  const memory = await loadDispatchMemory({ worktree: params.worktree, agentHandle: targetHandle })
+
   // Why: dispatched agents use orca-dev in dev mode to reach the dev runtime's socket, not production (Section 6.4).
   const preamble = buildDispatchPreamble({
     taskId: task.id,
@@ -131,7 +137,8 @@ export async function dispatchTaskToWorker(params: {
             artifact: phaseRow.artifact
           }
         }
-      : {})
+      : {}),
+    ...(memory ? { memory } : {})
   })
 
   // Why: surface a since-resolved decision gate's outcome to the worker via the preamble.

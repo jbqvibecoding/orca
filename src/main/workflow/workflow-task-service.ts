@@ -11,6 +11,7 @@ import {
   type WorkflowDocument
 } from '../../shared/workflow-document'
 import { substituteWorkflowTemplate, type WorkflowPhaseId } from '../../shared/workflow-phase'
+import { commitAgentMemory } from '../agent-memory/audit-commit'
 import { OrchestrationError } from '../runtime/orchestration/orchestration-error'
 import type { OrchestrationDb } from '../runtime/orchestration/db'
 import type { TaskPhaseRow } from '../runtime/orchestration/db/tasks/task-phase-store'
@@ -278,5 +279,14 @@ export async function advanceTaskWorkflow(args: {
       ...(await phaseEntryRecord(document, decision.to, args.taskId, args.workspace))
     })
   }
+  // A phase boundary is the checkpoint worth auditing: whatever the workers
+  // learned during the phase is on disk by now. The outcome is deliberately
+  // ignored — a missing git binary or a failed commit costs the audit trail,
+  // never the transition (ADR-0008).
+  await commitAgentMemory(
+    decision.kind === 'advance'
+      ? `memory: ${args.taskId} ${row.phase} -> ${decision.to}`
+      : `memory: ${args.taskId} finished ${row.phase}`
+  )
   return decision
 }

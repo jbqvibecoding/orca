@@ -103,3 +103,56 @@ agent at all.
 **Adopt ruflo's memory stack now.** Rejected: large surface, and performance
 claims its own documentation flags as unverified. The evidence gate above is the
 path back in.
+
+---
+
+## Amendment (implementation)
+
+One correction, and three details the decision left open.
+
+**Correction: the audit repository is Orca's own, not the user's project.**
+Read literally, "memory files in a repository with the supervising process as
+the only committer" puts agent memory in the workspace and has Orca commit it.
+That would be a new and surprising behaviour: `src/main/git/` is read-only today
+(`gitExecFileAsync`, `hasCommitObjectViaGitExec` and friends) — Orca has never
+created a commit on a user's behalf, and commits landing in someone's project
+history are hard to undo.
+
+Memory therefore lives at `<userData>/agent-memory/<workspaceId>/<agentHandle>/memory.md`,
+inside a git repository Orca owns outright. The audit trail is unchanged; the
+user's history is untouched. It also makes two of this ADR's own requirements
+fall out for free: folder workspaces work because nothing depends on the
+workspace being a repo, and git being absent degrades to plain files with no
+audit trail, reported honestly rather than thrown.
+
+**`workspaceId` is a hash, not the selector.** Worktree selectors contain `/`,
+`::` and `:`, so they cannot be path segments. They are hashed
+(`ws_<sha256[0:16]>`, the digest shape already used by `ssh-relay-instance-id.ts`)
+rather than sanitised, because a rewrite that produced a legal name could map
+two different worktrees onto one and silently merge their memory. A coordinator
+with no worktree selector is a supported case, not an error; it gets the
+`unscoped` workspace.
+
+**Reading memory can never fail a dispatch.** `loadDispatchMemory` returns
+`null` for every failure — absent file, unreadable file, a handle that is not a
+valid path segment, no Electron app environment. A dispatch that died over an
+unreadable memory file would trade a working task for a missing paragraph. The
+preamble section is optional in the same way the phase section is: an agent with
+no memory gets a byte-identical preamble, which the existing preamble snapshot
+test confirms.
+
+**Memory is framed as notes, not instructions.** The preamble says the facts are
+the agent's own, that they may be stale, and that what it can verify now wins.
+Presenting curated memory as fact would let one wrong note outrank direct
+evidence on every later task — the failure mode that makes long-lived memory
+worse than none.
+
+**The checkpoint is the phase boundary, and there is one queue per root.**
+`commitAgentMemory` is the only way to commit, and it holds the queue for each
+memory root in a module-level map: a second `new AgentMemoryCommitQueue(root)`
+elsewhere would reintroduce the concurrent `.git/index.lock` corruption the
+queue exists to prevent, so there is one place that could make that mistake.
+`advanceTaskWorkflow` calls it after every transition — by then whatever the
+workers learned during the phase is on disk. The outcome is deliberately
+ignored: a missing git binary or a failed commit costs the audit trail, never
+the transition.

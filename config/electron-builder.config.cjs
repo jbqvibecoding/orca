@@ -95,11 +95,19 @@ const delegateSidecarResources = {
   from: 'resources/delegate',
   to: 'delegate'
 }
+// Why an extraResource: the session index is a native executable, and an
+// executable cannot be run from inside app.asar. It is also optional — a build
+// without the Rust toolchain ships without it and the CLI says so.
+const sessionIndexResources = {
+  from: 'resources/session-index',
+  to: 'session-index'
+}
 const commonExtraResources = [
   relayExtraResource,
   bundledPluginResources,
   skillFreshnessResources,
-  delegateSidecarResources
+  delegateSidecarResources,
+  sessionIndexResources
 ]
 const macSpeechNativeResource = {
   from: 'node_modules/sherpa-onnx-darwin-${arch}',

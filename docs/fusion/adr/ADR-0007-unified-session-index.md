@@ -98,3 +98,62 @@ not.
 **Have each vendor integration in `src/main/` read its own history.** Rejected:
 it scatters fifteen format parsers across eighteen vendor directories and
 duplicates the FTS index per vendor.
+
+---
+
+## Amendment (implementation)
+
+Implementing this corrected four things the decision above got wrong or stated
+too confidently. The decision itself stands.
+
+**1. "Rust is not an obstacle, Orca already has a `native/` directory" was
+misleading.** Orca's build had no Rust at all: no `Cargo.toml` anywhere, and no
+`cargo` in CI or `package.json`. `native/` held C#, Swift, Python and
+PowerShell. So this was not adding a crate to an existing Rust build — it
+introduced rustup and cargo to Orca's build for the first time. That is exactly
+the platform gate the roadmap named, and it is why the build script probes for
+`cargo` and _skips_ rather than failing: a contributor without Rust must still
+be able to build Orca.
+
+**2. "wake-core is already headless" was not accurate.** It still carried
+`src/services/` (`exporter.rs` plus `terminal/`), and through it dependencies on
+`trash` (system recycle bin) and `windows-sys` (MessageBox, clipboard, process
+flags). A read-only index process has no business being able to delete a user's
+files. The fork now puts `services` and both dependencies behind a `desktop`
+Cargo feature, and Orca builds with `--no-default-features`. `cargo tree`
+confirms neither dependency is in the built tree. This was clean to do because
+`adapters/`, `db.rs`, `models.rs`, `scanner.rs` and `watcher.rs` never reference
+`services::`.
+
+**3. Only Linux is verified.** The sidecar compiles and its whole query surface
+runs here. macOS and Windows builds could not be produced or tested in this
+environment, and neither could a packaged app. Rather than let that be implied
+by silence, it is written down in
+[`docs/reference/wake-index-platform-floor.md`](../../reference/wake-index-platform-floor.md).
+
+**4. The read-only guarantee is now proved, not asserted.** The ADR relied on
+`adapters/sqlite_ro.rs` being a good implementation. The fork adds a test that
+snapshots every file under a fake HOME (size and mtime), runs a full scan, and
+asserts nothing was added, removed or modified — with a non-vacuity guard that
+fails if the scan indexed nothing, since a scan that read nothing would trivially
+change nothing. The SQLite path, the most dangerous one, is proved separately by
+a unit test asserting that opening another tool's database creates no `-wal` or
+`-shm` sidecar.
+
+### Two departures from the design as written
+
+**No RPC path; the CLI spawns the sidecar directly.** The plan called for RPC
+plus CLI. The index describes agent sessions under _this_ machine's home
+directory, so serving the query from a paired remote runtime would answer about
+the wrong machine — the same boundary
+[`ssh-execution-boundary.md`](../../reference/ssh-execution-boundary.md) draws
+for execution, applied to history. `orca sessions` therefore takes no `--host`
+and follows the delegation precedent of running locally.
+
+**Orca keeps no copy of the agent-id vocabulary.** An obvious-looking constant
+listing the indexable agents was written and then removed: the sidecar already
+refuses an unknown `--agent` and names the ones it knows, so a second list in
+Orca could only drift, and would reject an agent a newer sidecar had learned to
+read. The real ids (`claude-code`, `codex`, `qoder`, `copilot`, `cursor`,
+`opencode`, `kiro`, `gemini`, `pi`, `omp`, `grok`, `kimi`, `antigravity`, `dsh`)
+also differed from what was assumed, which is how the duplication was caught.

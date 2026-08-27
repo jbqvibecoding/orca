@@ -62,6 +62,7 @@
     "build:computer-macos": "node config/scripts/build-computer-macos.mjs",
     "build:keyboard-layout-macos": "node config/scripts/build-keyboard-layout-macos.mjs",
     "build:notification-status-macos": "node config/scripts/build-notification-status-macos.mjs",
+    "build:session-index": "node config/scripts/build-session-index.mjs",
     "build:native": "node config/scripts/build-native-for-platform.mjs",
     "smoke:computer": "node config/scripts/computer-use-smoke.mjs",
     "verify:computer-native": "node config/scripts/verify-computer-native.mjs",
