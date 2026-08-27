@@ -1,5 +1,6 @@
 import type { RpcAnyMethod } from '../core'
 import { STATUS_METHODS } from './status'
+import { ACCEPTANCE_METHODS } from './acceptance'
 import { AI_VAULT_METHODS } from './ai-vault'
 import { AUTOMATION_METHODS } from './automations'
 import { REPO_METHODS } from './repo'
@@ -49,6 +50,7 @@ import { ARTIFACT_METHODS } from './artifacts'
 // auditing the security boundary or wiring new CLI commands.
 export const ALL_RPC_METHODS: readonly RpcAnyMethod[] = [
   ...STATUS_METHODS,
+  ...ACCEPTANCE_METHODS,
   ...AI_VAULT_METHODS,
   ...ARTIFACT_METHODS,
   ...AUTOMATION_METHODS,

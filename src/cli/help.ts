@@ -95,6 +95,10 @@ Terminals:
   terminal focus            Alias for terminal switch
   terminal close            Close a terminal pane/session, or its whole tab with --tab
 
+Acceptance gates:
+  acceptance run            Run typecheck/test/lint over a workspace and record the verdict
+  acceptance log            Show recent acceptance-gate events
+
 Orchestration:
   orchestration run-create  Create and bind a lightweight orchestration Run
   orchestration run-use     Bind this coordinator terminal to an existing Run
@@ -537,6 +541,10 @@ export function formatFlagHelp(flag: string): string {
     'base-branch': '--base-branch <ref>    Base branch/ref to create the worktree from',
     command: '--command <text>       Command to run in the terminal on startup',
     comment: '--comment <text>       Comment stored in Orca metadata',
+    check: '--check <name>        Acceptance check to run: typecheck|test|lint; repeat for several',
+    cwd: '--cwd <path>           Workspace directory to act on (defaults to the current directory)',
+    host: '--host <id>            Execution host: local or ssh:<target>',
+    'timeout-seconds': '--timeout-seconds <n>  Per-check time limit before it is reported failed',
     cursor: '--cursor <n>           Line cursor from a previous read (returns only new output)',
     action: '--action <name>       Secondary accessibility action name',
     activate: '--activate             Reveal the new worktree in the Orca app',
