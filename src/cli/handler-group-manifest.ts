@@ -23,6 +23,16 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/acceptance.js')).ACCEPTANCE_HANDLERS
   },
   {
+    name: 'delegate',
+    keys: [
+      'agent delegate',
+      'agent delegate-show',
+      'agent delegate-doctor',
+      'agent delegate-setup'
+    ],
+    load: async () => (await import('./handlers/delegate.js')).DELEGATE_HANDLERS
+  },
+  {
     name: 'account',
     keys: ['account add', 'account list'],
     load: async () => (await import('./handlers/account.js')).ACCOUNT_HANDLERS

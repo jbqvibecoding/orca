@@ -89,7 +89,18 @@ const bundledPluginResources = {
 // from package directories where pnpm's symlink farm is absent. Copy the exact
 // runtime dependency closure to Resources/node_modules so bare require() calls
 // do not fall through to a developer checkout's node_modules.
-const commonExtraResources = [relayExtraResource, bundledPluginResources, skillFreshnessResources]
+// Why an extraResource and not app.asar: the delegation sidecar is executed as
+// `node <path>`, and Node cannot run a script from inside an asar archive.
+const delegateSidecarResources = {
+  from: 'resources/delegate',
+  to: 'delegate'
+}
+const commonExtraResources = [
+  relayExtraResource,
+  bundledPluginResources,
+  skillFreshnessResources,
+  delegateSidecarResources
+]
 const macSpeechNativeResource = {
   from: 'node_modules/sherpa-onnx-darwin-${arch}',
   to: 'node_modules/sherpa-onnx-darwin-${arch}'

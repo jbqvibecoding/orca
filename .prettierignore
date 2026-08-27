@@ -1,0 +1,6 @@
+# oxfmt reads this file by default (see `oxfmt --help`, Ignore Options).
+#
+# Vendored generated artifacts only. Reformatting them would break the checksum
+# recorded next to them and make the copy diverge from the upstream build it
+# was taken from.
+resources/delegate/*.mjs

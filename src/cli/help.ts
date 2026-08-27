@@ -95,6 +95,12 @@ Terminals:
   terminal focus            Alias for terminal switch
   terminal close            Close a terminal pane/session, or its whole tab with --tab
 
+Delegation (runs locally, even when paired to a remote server):
+  agent delegate            Ask another vendor's agent a bounded question
+  agent delegate-show       Read the structured result of a delegated run
+  agent delegate-doctor     Report which delegation backends are usable
+  agent delegate-setup      Enable the agent CLIs found on this machine
+
 Acceptance gates:
   acceptance run            Run typecheck/test/lint over a workspace and record the verdict
   acceptance log            Show recent acceptance-gate events
@@ -542,6 +548,18 @@ export function formatFlagHelp(flag: string): string {
     command: '--command <text>       Command to run in the terminal on startup',
     comment: '--comment <text>       Comment stored in Orca metadata',
     check: '--check <name>        Acceptance check to run: typecheck|test|lint; repeat for several',
+    briefing: '--briefing <text>      Project context for a delegate with zero knowledge of it',
+    objective: '--objective <text>     The exact question, what was tried, and the full error text',
+    locations: '--locations <text>     Where the relevant code lives',
+    constraints: '--constraints <text>   What the delegate must not change or do',
+    'output-contract': '--output-contract <text> Shape the answer should take',
+    backend: '--backend <id>         Delegate backend: auto|claude|codex|grok|kimi|agy',
+    files: '--files <glob>         File whitelist for the delegate; repeat for several',
+    strict: '--strict               Run against only the --files whitelist, in an isolated copy',
+    thread: '--thread <id>          Continue an existing delegation thread',
+    'task-stdin': '--task-stdin           Read the whole task document as JSON from stdin',
+    home: '--home <path>          Delegation state directory (default ~/.ywcrew)',
+    run: '--run <id>             Delegated run id',
     cwd: '--cwd <path>           Workspace directory to act on (defaults to the current directory)',
     host: '--host <id>            Execution host: local or ssh:<target>',
     'timeout-seconds': '--timeout-seconds <n>  Per-check time limit before it is reported failed',

@@ -49,8 +49,10 @@ export const BOOLEAN_FLAGS = new Set([
   'run-hooks',
   'show-profile',
   'staged',
+  'strict',
   'tab',
   'tasks',
+  'task-stdin',
   'text-stdin',
   'unread',
   'value-stdin',
@@ -58,7 +60,7 @@ export const BOOLEAN_FLAGS = new Set([
 ])
 
 export const REPEATED_FLAG_SEPARATOR = '\u0000'
-const REPEATABLE_STRING_FLAGS = new Set(['check', 'label', 'skill'])
+const REPEATABLE_STRING_FLAGS = new Set(['check', 'files', 'label', 'skill'])
 
 function setFlagValue(flags: Map<string, string | boolean>, name: string, value: string): void {
   const existing = flags.get(name)
