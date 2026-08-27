@@ -1,6 +1,6 @@
 # ADR-0004 — agtx's `plugin.toml` is the workflow contract
 
-**Status:** Accepted
+**Status:** Accepted, amended 2026-08-27 (see *Amendment* at the end)
 **Date:** 2026-08-26
 **Integration tier:** 2 (contract port), plus data import of the plugin files
 
@@ -103,3 +103,72 @@ single-source rule at L2.
 *human answer*. A phase transition blocks on an *artifact* and a *command exit
 code*. Conflating them is the naming collision this merge is explicitly
 resolving.
+
+## Amendment — 2026-08-27, from building it
+
+Four claims above did not survive implementation. They are corrected here rather
+than edited away, so the record shows what the design got wrong.
+
+**1. The dependency DAG was already Orca's.** This ADR proposed porting agtx's
+`dep_graph.rs`. Orca already promotes `blocked` tasks to `ready` when their
+dependencies complete (`promoteReadyTasks` in
+`src/main/runtime/orchestration/db/tasks/task-store.ts`) and already reconciles
+convergence (`coordinator-dag-convergence.ts`). Nothing was ported. agtx's
+contribution is the **phase model**, not the DAG.
+
+**2. The document is YAML, not TOML.** Orca has no TOML parser and avoids one
+deliberately — its only TOML code is a byte-preserving line scanner for Codex's
+`config.toml` that cannot produce a document. Orca already ships `yaml` and
+already reads a bounded repo config with it (`src/shared/orca-yaml.ts`), so the
+workflow document reuses that parser and its size/alias bounds. agtx's TOML was
+converted once, offline. The contract is the same; only the syntax changed.
+
+**3. "Import agtx's ten bundled plugin documents as data" is not achievable.**
+Seven of the ten (gsd, spec-kit, openspec, bmad, superpowers, oh-my-claudecode,
+agent-skills) are dispatch tables of third-party slash commands
+(`/gsd:plan-phase {phase}`) that only exist because an `init_script` first
+`npx`-installs that framework into the working copy. Orca dispatches a task spec
+rather than typing into a live pane, and does not execute shell from a workflow
+document, so importing those seven would have shipped seven documents that
+silently do nothing. Two documents ship instead — `standard` and
+`standard-terse`, from agtx's own skill markdown, which is the part that carries
+real phase instructions. Supporting the other seven is a separate question about
+whether Orca should drive framework CLIs at all, not a data import.
+
+**4. Derived entry gating changed its rule.** agtx derives "this phase can start
+cold" from whether the prompt contains `{task}`, because there the prompt typed
+into the pane is the worker's only channel. Orca's dispatch preamble always
+carries the task, so that test marks every phase startable and means nothing.
+The rule here is instead: **a phase waits for its predecessor when that
+predecessor declares an artifact.** Same intent — do not start work whose input
+does not exist yet — expressed against something Orca can actually observe.
+
+Two decisions were also narrowed on security grounds and are recorded as
+exclusions, not oversights: `init_script` is not supported (a config document
+must not execute arbitrary shell — Orca gates hook command sources for exactly
+this reason), and artifact patterns are restricted to workspace-relative paths
+with at most one whole `*` segment, validated at parse time *and* after template
+substitution, because the pattern is joined onto a workspace root.
+
+The `{task}` prompt-delivery hazard this ADR flagged does not arise: Orca passes
+the phase instruction inside the dispatch preamble as text, never as shell
+argv, so there is no quoting layer to lose it in.
+
+Two further departures the build forced:
+
+**`cycle_to: <phase>` replaces `cyclic: true`.** A boolean says a workflow loops
+but not where to, and agtx's review loop returns to planning rather than to the
+read-only research phase ahead of it. Naming the target is one field instead of
+two and states the actual behavior.
+
+**A cyclic phase needs to tell its own output from the previous pass's.** The
+artifact path is usually the same file on every pass, so a second pass would
+advance the instant it began, on evidence the first pass produced. The phase row
+records the artifact's modification time *at the moment the phase was entered*
+and the check compares against that. Deliberately not a wall clock: on an SSH
+workspace the file's timestamp comes from the remote host while `Date.now()`
+comes from ours, and even locally a filesystem's timestamp granularity can be
+coarser than the clock — the first implementation used a wall clock and failed
+against real files for exactly that reason. A host that reports no modification
+time at all counts as fresh, because an absent capability must not deadlock a
+phase forever.

@@ -1,4 +1,5 @@
 import { parseDocument } from 'yaml'
+import { WORKFLOW_NAME_PATTERN } from './workflow-document'
 import type {
   OrcaDefaultTabTemplate,
   OrcaHooks,
@@ -25,6 +26,9 @@ function asTrimmedString(value: unknown): string | undefined {
   const trimmed = value.trim()
   return trimmed || undefined
 }
+
+/** Repo-root config file this module parses. */
+export const ORCA_YAML_FILE_NAME = 'orca.yaml'
 
 const DEFAULT_TAB_COLOR_RE = /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?$/
 export const ORCA_VM_RECIPE_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/
@@ -226,6 +230,10 @@ export function parseOrcaYaml(content: string): OrcaHooks | null {
   const setup = scriptsRecord ? asTrimmedString(scriptsRecord.setup) : undefined
   const archive = scriptsRecord ? asTrimmedString(scriptsRecord.archive) : undefined
   const issueCommand = asTrimmedString(record.issueCommand)
+  // Only the name: the document itself lives in the workflow library, so a repo
+  // pins which workflow without carrying a copy that can drift from it.
+  const workflowRaw = asTrimmedString(record.workflow)
+  const workflow = workflowRaw && WORKFLOW_NAME_PATTERN.test(workflowRaw) ? workflowRaw : undefined
   const defaultTabs = normalizeDefaultTabs(record.defaultTabs)
   const environmentRecipeParse = normalizeVmRecipes(record.environmentRecipes)
   const environmentRecipes = environmentRecipeParse.recipes
@@ -239,6 +247,7 @@ export function parseOrcaYaml(content: string): OrcaHooks | null {
     !setup &&
     !archive &&
     !issueCommand &&
+    !workflow &&
     defaultTabs.length === 0 &&
     environmentRecipes.length === 0 &&
     environmentRecipeDiagnostics.length === 0 &&
@@ -253,6 +262,7 @@ export function parseOrcaYaml(content: string): OrcaHooks | null {
       ...(archive ? { archive } : {})
     },
     ...(issueCommand ? { issueCommand } : {}),
+    ...(workflow ? { workflow } : {}),
     ...(defaultTabs.length > 0 ? { defaultTabs } : {}),
     ...(environmentRecipes.length > 0 ? { environmentRecipes } : {}),
     ...(environmentRecipeDiagnostics.length > 0 ? { environmentRecipeDiagnostics } : {}),

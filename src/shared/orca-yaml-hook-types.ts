@@ -13,6 +13,7 @@ export type OrcaHooks = {
   environmentRecipes?: OrcaVmRecipe[] // Project-scoped per-workspace environment recipes
   environmentRecipeDiagnostics?: OrcaVmRecipeDiagnostic[] // Non-fatal validation issues from environmentRecipes
   worktree?: OrcaWorktreeDefaults // Project-scoped defaults applied when a worktree is created
+  workflow?: string // Default workflow document name for tasks in this repo
 }
 
 export type OrcaWorktreeDefaults = {

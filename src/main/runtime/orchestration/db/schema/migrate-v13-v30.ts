@@ -2,7 +2,7 @@ import { migrateMutationReceiptCapacity } from '../../mutation-receipt-capacity'
 import { DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL } from '../pane-key-match'
 import type { OrchestrationDb } from '../orchestration-db'
 
-export function applySchemaMigrationsV13ToV29(this: OrchestrationDb, current: number): void {
+export function applySchemaMigrationsV13ToV30(this: OrchestrationDb, current: number): void {
   if (current < 13 && !this.hasColumn('worker_dispatches', 'runtime_epoch')) {
     this.db.exec('ALTER TABLE worker_dispatches ADD COLUMN runtime_epoch TEXT')
   }
@@ -156,6 +156,29 @@ export function applySchemaMigrationsV13ToV29(this: OrchestrationDb, current: nu
   // against external logs to tell them apart (STA-4603).
   if (current < 29 && !this.hasColumn('dispatch_contexts', 'termination_reason')) {
     this.db.exec('ALTER TABLE dispatch_contexts ADD COLUMN termination_reason TEXT')
+  }
+  // Why a side table and not a column on tasks: `status` is one dispatch's
+  // execution lifecycle, a phase is where the task sits in its workflow, and a
+  // task can be `completed` for one and still owe the other.
+  if (current < 30) {
+    this.db.exec(`
+        CREATE TABLE IF NOT EXISTS task_phases (
+          task_id               TEXT PRIMARY KEY,
+          workflow_name         TEXT NOT NULL,
+          workflow_origin       TEXT NOT NULL
+            CHECK(workflow_origin IN ('project', 'global', 'builtin')),
+          phase                 TEXT NOT NULL
+            CHECK(phase IN ('research', 'planning', 'running', 'review')),
+          cycle                 INTEGER NOT NULL DEFAULT 0,
+          entered_at            TEXT NOT NULL DEFAULT (datetime('now')),
+          entry_artifact_ms     INTEGER,
+          instruction           TEXT,
+          artifact              TEXT,
+          last_refusal_cause    TEXT,
+          last_refusal_reason   TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_task_phases_phase ON task_phases(phase);
+      `)
   }
   this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_dispatch_assignee_pane_leaf

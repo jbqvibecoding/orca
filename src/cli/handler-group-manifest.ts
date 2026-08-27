@@ -23,6 +23,17 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/acceptance.js')).ACCEPTANCE_HANDLERS
   },
   {
+    name: 'workflow',
+    keys: [
+      'workflow list',
+      'workflow show',
+      'workflow start',
+      'workflow status',
+      'workflow advance'
+    ],
+    load: async () => (await import('./handlers/workflow.js')).WORKFLOW_HANDLERS
+  },
+  {
     name: 'delegate',
     keys: [
       'agent delegate',

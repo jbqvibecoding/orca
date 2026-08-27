@@ -43,6 +43,7 @@ import type { CreateTablesMethods } from './schema/create-tables'
 import type { MigrateLegacyContractStorageMethods } from './schema/migrate-legacy-contract-storage'
 import type { SchemaMigrateMethods } from './schema/migrate'
 import type { SchemaColumnProbesMethods } from './schema/schema-column-probes'
+import type { TaskPhaseStoreMethods } from './tasks/task-phase-store'
 import type { TaskStoreMethods } from './tasks/task-store'
 import type { TaskStatusTransitionMethods } from './tasks/task-status-transition'
 import type { FederatedWorkerStartReconcileMethods } from './worker-dispatch/federated-worker-start-reconcile'
@@ -88,6 +89,7 @@ export type OrchestrationDbMethods = CreateTablesMethods &
   ForeignDirectMailboxRoutingMethods &
   QuestionThreadsMethods &
   TaskStoreMethods &
+  TaskPhaseStoreMethods &
   TaskStatusTransitionMethods &
   WorkerDispatchStartMethods &
   WorkerDispatchStageMethods &

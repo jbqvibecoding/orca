@@ -548,6 +548,10 @@ export function formatFlagHelp(flag: string): string {
     command: '--command <text>       Command to run in the terminal on startup',
     comment: '--comment <text>       Comment stored in Orca metadata',
     check: '--check <name>        Acceptance check to run: typecheck|test|lint; repeat for several',
+    task: '--task <id>            Orchestration task id',
+    workflow: '--workflow <name>      Workflow document name, e.g. standard',
+    'waive-acceptance':
+      '--waive-acceptance     Advance without the acceptance gate (the artifact is still required)',
     briefing: '--briefing <text>      Project context for a delegate with zero knowledge of it',
     objective: '--objective <text>     The exact question, what was tried, and the full error text',
     locations: '--locations <text>     Where the relevant code lives',

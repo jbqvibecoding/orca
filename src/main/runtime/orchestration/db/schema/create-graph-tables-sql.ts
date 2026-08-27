@@ -107,6 +107,28 @@ CREATE TABLE IF NOT EXISTS tasks (
   completed_at  TEXT
 );
 
+-- Why a side table: status is one dispatch's execution lifecycle, while a phase
+-- is where the task sits in its workflow. A task can be completed for its
+-- planning dispatch and still owe a running phase, so the two never share a
+-- row's meaning. Tasks without a workflow simply have no row here.
+CREATE TABLE IF NOT EXISTS task_phases (
+  task_id               TEXT PRIMARY KEY,
+  workflow_name         TEXT NOT NULL,
+  workflow_origin       TEXT NOT NULL
+    CHECK(workflow_origin IN ('project', 'global', 'builtin')),
+  phase                 TEXT NOT NULL
+    CHECK(phase IN ('research', 'planning', 'running', 'review')),
+  cycle                 INTEGER NOT NULL DEFAULT 0,
+  entered_at            TEXT NOT NULL DEFAULT (datetime('now')),
+  entry_artifact_ms     INTEGER,
+  instruction           TEXT,
+  artifact              TEXT,
+  last_refusal_cause    TEXT,
+  last_refusal_reason   TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_phases_phase ON task_phases(phase);
+
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_id);
 

@@ -31,6 +31,15 @@ export type PreambleParams = {
   // Why: prompt-returning agents should idle after worker_done, while bare
   // shells have no agent prompt for Orca to reuse.
   workerKind?: 'prompt-returning-agent' | 'bare-shell'
+  // Why optional: a task with no workflow emits a byte-identical preamble, so
+  // adopting phases changes nothing for every existing dispatch.
+  phase?: {
+    id: string
+    cycle: number
+    /** Already substituted; the preamble does no templating of its own. */
+    instruction: string | null
+    artifact: string | null
+  }
 }
 
 // Why: 5 minutes is frequent enough that the coordinator's stale-heartbeat
@@ -141,7 +150,28 @@ ${postDoneInstructions}`
   return `${header}${drift}
 
 === TASK ===
-${params.taskSpec}`
+${params.taskSpec}${buildPhaseSection(params.phase)}`
+}
+
+// Why after the task: the phase narrows what to do with the task, so it reads as
+// a qualifier rather than as a second, competing brief.
+function buildPhaseSection(phase: PreambleParams['phase']): string {
+  if (!phase) {
+    return ''
+  }
+  const cycle = phase.cycle > 0 ? ` (pass ${phase.cycle + 1})` : ''
+  const lines = [`\n\n=== PHASE: ${phase.id}${cycle} ===`]
+  if (phase.instruction) {
+    lines.push(phase.instruction.trimEnd())
+  }
+  if (phase.artifact) {
+    // Why state it separately: this file is what Orca checks to decide the
+    // phase is finished, so the worker must not be left inferring it from prose.
+    lines.push(
+      `\nOrca treats this phase as finished when ${phase.artifact} exists. Write it before you send worker_done.`
+    )
+  }
+  return lines.join('\n')
 }
 
 function buildPostWorkerDoneInstructions({

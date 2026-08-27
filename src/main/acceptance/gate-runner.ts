@@ -21,9 +21,9 @@ import { parseExecutionHostId } from '../../shared/execution-host'
 import { createAcceptanceEvent } from './event-log'
 import { PACKAGE_MANAGER_LOCKFILE_PATHS, resolveCheckCommand } from './gate-command-resolution'
 import {
-  resolveWorkspaceManifestReader,
-  type WorkspaceManifestReader
-} from './workspace-manifest-reader'
+  resolveWorkspaceFileReader,
+  type WorkspaceFileReader
+} from '../workspace/workspace-file-reader'
 
 export const DEFAULT_ACCEPTANCE_TIMEOUT_SECONDS = 600
 
@@ -87,7 +87,7 @@ export function verdictFromPrecheck(result: AutomationPrecheckResult): {
 }
 
 async function readPresentLockfiles(
-  reader: WorkspaceManifestReader
+  reader: WorkspaceFileReader
 ): Promise<{ status: 'ready'; paths: string[] } | { status: 'unreachable'; reason: string }> {
   const paths: string[] = []
   for (const candidate of PACKAGE_MANAGER_LOCKFILE_PATHS) {
@@ -210,7 +210,7 @@ async function resolveAndRunChecks(args: {
   }
   const results: AcceptanceCheckResult[] = []
 
-  const readerResolution = resolveWorkspaceManifestReader({ cwd: args.cwd, hostId: args.hostId })
+  const readerResolution = resolveWorkspaceFileReader({ cwd: args.cwd, hostId: args.hostId })
   if (readerResolution.status === 'unsupported') {
     for (const check of args.checks) {
       record(results, emptyResult(check, 'unverifiable', readerResolution.reason))

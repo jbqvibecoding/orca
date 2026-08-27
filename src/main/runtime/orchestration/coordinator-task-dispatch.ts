@@ -103,6 +103,11 @@ export async function dispatchTaskToWorker(params: {
     processIncarnation
   )
 
+  // Why read the row rather than resolve the workflow document here: the phase's
+  // text was resolved and stored when the task entered the phase, so dispatch
+  // needs no workspace access and no async document lookup on its hot path.
+  const phaseRow = db.getTaskPhase(task.id)
+
   // Why: dispatched agents use orca-dev in dev mode to reach the dev runtime's socket, not production (Section 6.4).
   const preamble = buildDispatchPreamble({
     taskId: task.id,
@@ -116,7 +121,17 @@ export async function dispatchTaskToWorker(params: {
       ? { cliCommand: runtime.getTerminalOrchestrationCliCommand(targetHandle) }
       : {}),
     // Why (§3.2): pass baseDrift unconditionally — the preamble builder itself gates the drift section on behind > 0.
-    ...(baseDrift ? { baseDrift } : {})
+    ...(baseDrift ? { baseDrift } : {}),
+    ...(phaseRow
+      ? {
+          phase: {
+            id: phaseRow.phase,
+            cycle: phaseRow.cycle,
+            instruction: phaseRow.instruction,
+            artifact: phaseRow.artifact
+          }
+        }
+      : {})
   })
 
   // Why: surface a since-resolved decision gate's outcome to the worker via the preamble.

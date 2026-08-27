@@ -37,6 +37,7 @@ export function resetAll(this: OrchestrationDb): void {
     DELETE FROM worker_terminal_resources;
     DELETE FROM worker_dispatches;
     DELETE FROM dispatch_contexts;
+    DELETE FROM task_phases;
     DELETE FROM tasks;
     DELETE FROM messages;
     DELETE FROM run_coordinator_handles;
@@ -68,6 +69,7 @@ export function resetTasks(this: OrchestrationDb): void {
     DELETE FROM worker_terminal_resources;
     DELETE FROM worker_dispatches;
     DELETE FROM dispatch_contexts;
+    DELETE FROM task_phases;
     DELETE FROM tasks;
   `)
   this.hasAnyDispatchContextsCache = undefined

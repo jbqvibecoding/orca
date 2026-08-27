@@ -277,6 +277,39 @@ describe('buildDispatchPreamble', () => {
     expect(thirdIdx).toBeGreaterThan(secondIdx)
   })
 
+  // Adopting phases must change nothing for every dispatch that has no workflow.
+  it('emits a byte-identical preamble when no phase is given', () => {
+    expect(buildDispatchPreamble(baseParams())).toBe(
+      buildDispatchPreamble(baseParams({ phase: undefined }))
+    )
+    expect(buildDispatchPreamble(baseParams())).not.toContain('=== PHASE')
+  })
+
+  it('appends the phase after the task, with its completion artifact', () => {
+    const result = buildDispatchPreamble(
+      baseParams({
+        phase: {
+          id: 'planning',
+          cycle: 0,
+          instruction: 'You are in the PLANNING phase.',
+          artifact: '.orca/plan.md'
+        }
+      })
+    )
+    expect(result.indexOf('=== PHASE: planning ===')).toBeGreaterThan(
+      result.indexOf('=== TASK ===')
+    )
+    expect(result).toContain('You are in the PLANNING phase.')
+    expect(result).toContain('finished when .orca/plan.md exists')
+  })
+
+  it('names the pass number on a later cycle', () => {
+    const result = buildDispatchPreamble(
+      baseParams({ phase: { id: 'planning', cycle: 2, instruction: null, artifact: null } })
+    )
+    expect(result).toContain('=== PHASE: planning (pass 3) ===')
+  })
+
   it('renders a stable snapshot of the full preamble', () => {
     // Why: single strict snapshot catches any accidental regression in
     // formatting or rule presence in one line.
