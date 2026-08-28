@@ -1,6 +1,8 @@
 /** Picking worker terminals, sending a task's dispatch preamble, and warning about hung dispatches. */
 import type { OrchestrationDb } from './db'
-import type { TaskRow } from './types'
+import { describeExhaustedSpawn, recordBudgetExhaustion } from './budget-exhaustion-event'
+import type { OrchestrationEventSink } from '../../observability/orchestration-event-log'
+import type { DispatchContextRow, TaskRow } from './types'
 import { buildDispatchPreamble } from './preamble'
 import { loadDispatchMemory } from '../../agent-memory/dispatch-memory'
 import type { CoordinatorRuntime, WorktreeDrift } from './coordinator-runtime-contract'
@@ -9,7 +11,7 @@ import {
   parseAllowStaleBaseFromSpec
 } from './coordinator-stale-base-flag'
 
-export type TaskDispatchResult = 'dispatched' | 'stale-base-refused'
+export type TaskDispatchResult = 'dispatched' | 'stale-base-refused' | 'budget-exhausted'
 
 // Why: 10 min = documented heartbeat cadence (5 min) × 2, so one missed heartbeat is the earliest a dispatch can look stale.
 const HUNG_THRESHOLD_MS = 10 * 60 * 1000
@@ -69,6 +71,9 @@ export async function dispatchTaskToWorker(params: {
   onLog: (msg: string) => void
   // Why: the coordinator owns the failed-task list, so a circuit break is reported back instead of mutated here.
   onCircuitBroken: (taskId: string) => void
+  // ADR-0009: where a refused spawn is recorded. Absent in callers that do not
+  // keep an event log; the refusal is still logged and still stops the dispatch.
+  emitEvent?: OrchestrationEventSink
 }): Promise<TaskDispatchResult> {
   const { db, runtime, task, targetHandle, baseDrift, onLog } = params
   // Why (§3.1): drift check runs before createDispatchContext so a refusal doesn't bump failure_count (carried forward as MAX in db.ts:301-306) and burn the circuit-breaker budget; the task stays `ready` and retries next tick.
@@ -96,13 +101,27 @@ export async function dispatchTaskToWorker(params: {
     dispatchAuthority?.paneKey && dispatchAuthority.processIncarnation
       ? dispatchAuthority.processIncarnation
       : undefined
-  const dispatch = db.createDispatchContext(
-    task.id,
-    targetHandle,
-    assigneePaneKey,
-    dispatchAuthority?.launchTokenHash ?? undefined,
-    processIncarnation
-  )
+  let dispatch: DispatchContextRow
+  try {
+    dispatch = db.createDispatchContext(
+      task.id,
+      targetHandle,
+      assigneePaneKey,
+      dispatchAuthority?.launchTokenHash ?? undefined,
+      processIncarnation
+    )
+  } catch (error) {
+    // ADR-0009: an exhausted budget is an honest stop, not a task failure. Like
+    // the stale-base refusal above it leaves the task `ready` and does not touch
+    // failure_count, so raising the cap is all it takes to continue.
+    const exhaustion = describeExhaustedSpawn(error, { db, taskId: task.id, runId: task.run_id })
+    if (!exhaustion) {
+      throw error
+    }
+    recordBudgetExhaustion(params.emitEvent ?? (() => {}), exhaustion)
+    onLog(exhaustion.reason)
+    return 'budget-exhausted'
+  }
 
   // Why read the row rather than resolve the workflow document here: the phase's
   // text was resolved and stored when the task entered the phase, so dispatch

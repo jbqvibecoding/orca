@@ -6,7 +6,7 @@
 import { app } from 'electron'
 import { homedir, platform } from 'node:os'
 import { join } from 'node:path'
-import { buildAcceptanceEventLogPath } from '../../shared/acceptance-gate'
+import { buildOrchestrationEventLogPath } from '../../shared/orchestration-event'
 
 function getUserDataDir(): string {
   try {
@@ -31,7 +31,7 @@ export function getLogsDirectory(): string {
 
 /** NDJSON acceptance-gate event log; path shape lives in shared/acceptance-gate.ts. */
 export function getAcceptanceEventLogPath(): string {
-  return buildAcceptanceEventLogPath(getLogsDirectory())
+  return buildOrchestrationEventLogPath(getLogsDirectory())
 }
 
 /** NDJSON trace file written by the main-process error-tracking sink. */

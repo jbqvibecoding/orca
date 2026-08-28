@@ -1,8 +1,10 @@
 import type { DispatchContextRow } from '../../types'
+import { describeBudgetRefusal } from '../../../../../shared/budget-cap'
 import { OrchestrationError } from '../../orchestration-error'
 import { parsePaneKey } from '../../../../../shared/stable-pane-id'
 import { CURRENT_CONTRACT_VERSION } from '../contract-constants'
 import { generateId } from '../generated-id'
+import { budgetAllowsSpawnSql } from '../budgets/budget-claim-sql'
 import { DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL, paneKeyMatchSuffix } from '../pane-key-match'
 import type { OrchestrationDb } from '../orchestration-db'
 
@@ -34,7 +36,8 @@ WHERE id = ? AND status = 'ready'
         AND instr(active.assignee_pane_key, ':') > 1
         AND ${DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL} = ?
     )
-  )`
+  )
+  AND ${budgetAllowsSpawnSql('tasks.run_id')}`
 
 export function createDispatchContext(
   this: OrchestrationDb,
@@ -98,11 +101,32 @@ export function createDispatchContext(
           `Terminal ${assigneeHandle} already has an active dispatch (${occupied.id} for task ${occupied.task_id})`
         )
       }
+      // Only now, once the claim has already lost, is it worth asking which
+      // budget refused it: a refusal with no visible reason reads as a bug.
+      if (current?.status === 'ready') {
+        const budget = this.checkSpawnBudget(task.run_id)
+        if (budget.status === 'refused') {
+          throw new OrchestrationError(
+            'budget_exhausted',
+            describeBudgetRefusal(budget.refusal, budget.scope),
+            { budgetId: budget.budgetId, dimension: budget.refusal.dimension }
+          )
+        }
+      }
       throw new Error(
         `Task ${taskId} is ${current?.status ?? 'missing'}; only ready tasks can be dispatched`
       )
     }
     this.db.prepare("UPDATE tasks SET status = 'dispatched' WHERE id = ?").run(taskId)
+    // Attribution is written in the same transaction as the claim; a spend that
+    // was never attributed cannot be attributed afterwards (ADR-0009). Safe to
+    // read here: the INSERT above already put this connection in write mode.
+    const attributedTo = this.resolveSpawnBudgetId(task.run_id)
+    if (attributedTo !== null) {
+      this.db
+        .prepare('UPDATE dispatch_contexts SET budget_id = ? WHERE id = ?')
+        .run(attributedTo, id)
+    }
     const dispatch = this.db
       .prepare('SELECT * FROM dispatch_contexts WHERE id = ?')
       .get(id) as DispatchContextRow

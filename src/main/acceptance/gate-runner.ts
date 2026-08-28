@@ -13,12 +13,14 @@ import {
   rollUpAcceptanceVerdict,
   type AcceptanceCheckName,
   type AcceptanceCheckResult,
-  type AcceptanceEvent,
-  type AcceptanceEventAttribution,
   type AcceptanceGateResult
 } from '../../shared/acceptance-gate'
+import type {
+  OrchestrationEvent,
+  OrchestrationEventAttribution
+} from '../../shared/orchestration-event'
 import { parseExecutionHostId } from '../../shared/execution-host'
-import { createAcceptanceEvent } from './event-log'
+import { createOrchestrationEvent } from '../observability/orchestration-event-log'
 import { PACKAGE_MANAGER_LOCKFILE_PATHS, resolveCheckCommand } from './gate-command-resolution'
 import {
   resolveWorkspaceFileReader,
@@ -42,8 +44,10 @@ export type AcceptanceGateRunOptions = {
   hostId: string
   checks: readonly AcceptanceCheckName[]
   workspaceId?: string | null
+  /** ADR-0009: which budget this gate's work is charged to. Null when none is set. */
+  budgetId?: string | null
   timeoutSeconds?: number
-  emit?: (event: AcceptanceEvent) => void
+  emit?: (event: OrchestrationEvent) => void
   runPrecheck: AcceptancePrecheckRunner
 }
 
@@ -141,14 +145,15 @@ export async function runAcceptanceGate(
   const timeoutSeconds = normalizeAutomationPrecheckTimeoutSeconds(
     options.timeoutSeconds ?? DEFAULT_ACCEPTANCE_TIMEOUT_SECONDS
   )
-  const attribution: AcceptanceEventAttribution = {
+  const attribution: OrchestrationEventAttribution = {
     runId: randomUUID(),
     workspaceId: options.workspaceId ?? null,
-    hostId: options.hostId
+    hostId: options.hostId,
+    budgetId: options.budgetId ?? null
   }
   const sid = attribution.runId
   const emit = options.emit ?? (() => {})
-  const started = createAcceptanceEvent({
+  const started = createOrchestrationEvent({
     sid,
     kind: 'acceptance.gate.started',
     attribution,
@@ -162,7 +167,7 @@ export async function runAcceptanceGate(
     runPrecheck,
     onCheck: (check) =>
       emit(
-        createAcceptanceEvent({
+        createOrchestrationEvent({
           sid,
           kind: 'acceptance.check.settled',
           attribution,
@@ -181,7 +186,7 @@ export async function runAcceptanceGate(
     completedAt: Date.now()
   }
   emit(
-    createAcceptanceEvent({
+    createOrchestrationEvent({
       sid,
       kind: 'acceptance.gate.settled',
       attribution,

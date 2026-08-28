@@ -117,6 +117,7 @@ docs/**
 !docs/reference/worktree-scan-fingerprint.md
 !docs/reference/wsl-command-execution.md
 !docs/reference/wake-index-platform-floor.md
+!docs/reference/control-plane-rest.md
 !docs/reference/xterm-patch-regeneration.md
 
 # Fusion: the merge charter (architecture, capability matrix, licensing, ADRs).

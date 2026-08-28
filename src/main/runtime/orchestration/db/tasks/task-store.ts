@@ -1,6 +1,7 @@
 import type Database from '../../../../sqlite/sync-database'
-import type { TaskStatus, TaskRow } from '../../types'
+import type { TaskApprovalState, TaskStatus, TaskRow } from '../../types'
 import { buildOrchestrationTaskDisplayMetadata } from '../../../../../shared/orchestration-task-display'
+import { OrchestrationError } from '../../orchestration-error'
 import { LEGACY_RUN_ID } from '../contract-constants'
 import { generateId } from '../generated-id'
 import type { TaskRuntimeLineageRow } from '../run-list-page'
@@ -190,6 +191,31 @@ export function listTasksWithDispatch(
   })[]
 }
 
+/**
+ * Records an approval decision (ADR-0009).
+ *
+ * Approval is orthogonal to `status`: it says whether a human signed off, not
+ * where the task is in its execution. Conflating them would make an approved
+ * task look started.
+ */
+export function setTaskApproval(
+  this: OrchestrationDb,
+  args: { taskId: string; state: TaskApprovalState; by: string }
+): TaskRow {
+  const task = this.getTask(args.taskId)
+  if (!task) {
+    throw new OrchestrationError('task_not_found', `Task ${args.taskId} was not found.`)
+  }
+  this.db
+    .prepare(
+      `UPDATE tasks
+       SET approval_state = ?, approved_by = ?, approved_at = datetime('now')
+       WHERE id = ?`
+    )
+    .run(args.state, args.by, args.taskId)
+  return this.getTask(args.taskId) as TaskRow
+}
+
 // Why: runs in the status-update transaction, so a completed task never leaves its ready children unpromoted.
 export function promoteReadyTasks(this: OrchestrationDb, completedTaskId: string): void {
   const candidates = this.db
@@ -214,6 +240,7 @@ export function promoteReadyTasks(this: OrchestrationDb, completedTaskId: string
 
 export type TaskStoreMethods = {
   createTask: typeof createTask
+  setTaskApproval: typeof setTaskApproval
   getTask: typeof getTask
   listTasks: typeof listTasks
   listTasksWithDispatch: typeof listTasksWithDispatch
@@ -223,6 +250,7 @@ export type TaskStoreMethods = {
 export function attachTaskStore(ctor: { prototype: object }): void {
   Object.assign(ctor.prototype, {
     createTask,
+    setTaskApproval,
     getTask,
     listTasks,
     listTasksWithDispatch,

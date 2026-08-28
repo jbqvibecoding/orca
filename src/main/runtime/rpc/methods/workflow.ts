@@ -4,7 +4,7 @@ import { getAppEnvironment } from '../../../../shared/app-environment'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import { orderedWorkflowPhases } from '../../../../shared/workflow-document'
 import { runAcceptanceGate } from '../../../acceptance/gate-runner'
-import { getAcceptanceEventLogSink } from '../../../acceptance/event-log'
+import { getOrchestrationEventLogSink } from '../../../observability/orchestration-event-log'
 import { getLogsDirectory } from '../../../observability/logs-directory'
 import { resolveWorkspaceFileReader } from '../../../workspace/workspace-file-reader'
 import {
@@ -144,7 +144,7 @@ export const WORKFLOW_METHODS: readonly RpcMethod[] = [
     params: AdvanceWorkflow,
     handler: async (params, { runtime }) => {
       const { lookup, workspace } = requireWorkspace(params)
-      const sink = getAcceptanceEventLogSink(getLogsDirectory())
+      const sink = getOrchestrationEventLogSink(getLogsDirectory())
       const decision = await advanceTaskWorkflow({
         db: runtime.getOrchestrationDb(),
         taskId: params.taskId,

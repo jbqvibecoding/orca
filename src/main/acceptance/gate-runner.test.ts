@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { AutomationPrecheckResult } from '../../shared/automations-types'
-import type { AcceptanceEvent } from '../../shared/acceptance-gate'
+import type { OrchestrationEvent } from '../../shared/orchestration-event'
 import {
   runAcceptanceGate,
   verdictFromPrecheck,
@@ -167,7 +167,7 @@ describe('runAcceptanceGate', () => {
 
   it('emits started, per-check and settled events, all carrying attribution', async () => {
     writeManifest({ test: 'vitest run' })
-    const events: AcceptanceEvent[] = []
+    const events: OrchestrationEvent[] = []
     await runAcceptanceGate({
       cwd: dir,
       hostId: 'local',

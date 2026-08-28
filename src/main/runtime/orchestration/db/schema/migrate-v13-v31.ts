@@ -2,7 +2,7 @@ import { migrateMutationReceiptCapacity } from '../../mutation-receipt-capacity'
 import { DISPATCH_PANE_KEY_MATCH_SUFFIX_SQL } from '../pane-key-match'
 import type { OrchestrationDb } from '../orchestration-db'
 
-export function applySchemaMigrationsV13ToV30(this: OrchestrationDb, current: number): void {
+export function applySchemaMigrationsV13ToV31(this: OrchestrationDb, current: number): void {
   if (current < 13 && !this.hasColumn('worker_dispatches', 'runtime_epoch')) {
     this.db.exec('ALTER TABLE worker_dispatches ADD COLUMN runtime_epoch TEXT')
   }
@@ -179,6 +179,45 @@ export function applySchemaMigrationsV13ToV30(this: OrchestrationDb, current: nu
         );
         CREATE INDEX IF NOT EXISTS idx_task_phases_phase ON task_phases(phase);
       `)
+  }
+  // ADR-0009. The budget tables live in this database because the spawn claim is
+  // a transaction here: a cap the claim cannot read inside that transaction
+  // would need a separate check, and a check separate from the claim
+  // double-spends under parallelism.
+  if (current < 31) {
+    this.db.exec(`
+        CREATE TABLE IF NOT EXISTS budgets (
+          id                TEXT PRIMARY KEY,
+          scope             TEXT NOT NULL CHECK(scope IN ('run', 'global')),
+          run_id            TEXT,
+          max_spawns        INTEGER,
+          max_tokens        INTEGER,
+          max_spend_micros  INTEGER,
+          created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_budgets_run ON budgets(run_id) WHERE run_id IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_budgets_global ON budgets(scope) WHERE scope = 'global';
+        CREATE TABLE IF NOT EXISTS budget_observations (
+          budget_id             TEXT PRIMARY KEY,
+          observed_tokens       INTEGER NOT NULL DEFAULT 0,
+          observed_spend_micros INTEGER NOT NULL DEFAULT 0,
+          observed_at           TEXT NOT NULL DEFAULT (datetime('now')),
+          source                TEXT
+        );
+      `)
+  }
+  // Existing rows take the defaults: an upgraded database has no approvals and
+  // no budget attribution, which is the honest answer rather than a guess.
+  // SQLite cannot add a CHECK via ALTER, so an upgraded database enforces
+  // approval_state's vocabulary in code only; a fresh one enforces it in both.
+  if (current < 31 && !this.hasColumn('tasks', 'approval_state')) {
+    this.db.exec("ALTER TABLE tasks ADD COLUMN approval_state TEXT NOT NULL DEFAULT 'not_required'")
+    this.db.exec('ALTER TABLE tasks ADD COLUMN approved_by TEXT')
+    this.db.exec('ALTER TABLE tasks ADD COLUMN approved_at TEXT')
+  }
+  if (current < 31 && !this.hasColumn('dispatch_contexts', 'budget_id')) {
+    this.db.exec('ALTER TABLE dispatch_contexts ADD COLUMN budget_id TEXT')
   }
   this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_dispatch_assignee_pane_leaf

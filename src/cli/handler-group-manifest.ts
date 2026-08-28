@@ -34,6 +34,11 @@ export const HANDLER_GROUPS: readonly HandlerGroup[] = [
     load: async () => (await import('./handlers/workflow.js')).WORKFLOW_HANDLERS
   },
   {
+    name: 'budget',
+    keys: ['budget show', 'budget set', 'budget clear'],
+    load: async () => (await import('./handlers/budget.js')).BUDGET_HANDLERS
+  },
+  {
     name: 'sessions',
     keys: ['sessions search', 'sessions list', 'sessions reindex', 'sessions doctor'],
     load: async () => (await import('./handlers/sessions.js')).SESSIONS_HANDLERS

@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   ACCEPTANCE_CHECK_NAMES,
-  buildAcceptanceEventLogPath,
   isAcceptanceCheckName,
-  isAcceptanceEvent,
   rollUpAcceptanceVerdict,
   summarizeAcceptanceCheck,
   type AcceptanceCheckResult
 } from './acceptance-gate'
+import { buildOrchestrationEventLogPath, isOrchestrationEvent } from './orchestration-event'
 
 function verdicts(...values: AcceptanceCheckResult['verdict'][]) {
   return values.map((verdict) => ({ verdict }))
@@ -50,14 +49,14 @@ describe('rollUpAcceptanceVerdict', () => {
   })
 })
 
-describe('buildAcceptanceEventLogPath', () => {
+describe('buildOrchestrationEventLogPath', () => {
   it('places the log inside the given logs directory', () => {
-    expect(buildAcceptanceEventLogPath('/logs')).toMatch(/acceptance-events\.ndjson$/)
-    expect(buildAcceptanceEventLogPath('/logs')).toContain('logs')
+    expect(buildOrchestrationEventLogPath('/logs')).toMatch(/acceptance-events\.ndjson$/)
+    expect(buildOrchestrationEventLogPath('/logs')).toContain('logs')
   })
 })
 
-describe('isAcceptanceEvent', () => {
+describe('isOrchestrationEvent', () => {
   const valid = {
     eventId: 'e1',
     ts: '2026-01-01T00:00:00.000Z',
@@ -73,20 +72,20 @@ describe('isAcceptanceEvent', () => {
   }
 
   it('accepts a well-formed event', () => {
-    expect(isAcceptanceEvent(valid)).toBe(true)
+    expect(isOrchestrationEvent(valid)).toBe(true)
   })
 
   it('rejects an unknown kind', () => {
-    expect(isAcceptanceEvent({ ...valid, kind: 'something.else' })).toBe(false)
+    expect(isOrchestrationEvent({ ...valid, kind: 'something.else' })).toBe(false)
   })
 
   it('rejects an event with no attribution', () => {
-    expect(isAcceptanceEvent({ ...valid, attribution: null })).toBe(false)
+    expect(isOrchestrationEvent({ ...valid, attribution: null })).toBe(false)
   })
 
   it('rejects non-objects', () => {
-    expect(isAcceptanceEvent('nope')).toBe(false)
-    expect(isAcceptanceEvent(null)).toBe(false)
+    expect(isOrchestrationEvent('nope')).toBe(false)
+    expect(isOrchestrationEvent(null)).toBe(false)
   })
 })
 

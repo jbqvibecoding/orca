@@ -1,4 +1,5 @@
-// Append-only NDJSON record of every acceptance-gate verdict.
+// Append-only NDJSON record of orchestration events: acceptance-gate verdicts
+// and budget exhaustion.
 //
 // Reuses the trace sink rather than adding a second appender: it already does
 // synchronous writes, private file modes, batching and size rotation.
@@ -10,32 +11,32 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import {
-  buildAcceptanceEventLogPath,
-  isAcceptanceEvent,
-  type AcceptanceEvent,
-  type AcceptanceEventAttribution,
-  type AcceptanceEventKind
-} from '../../shared/acceptance-gate'
+  buildOrchestrationEventLogPath,
+  isOrchestrationEvent,
+  type OrchestrationEvent,
+  type OrchestrationEventAttribution,
+  type OrchestrationEventKind
+} from '../../shared/orchestration-event'
 import {
   createLocalFileSink,
   listRotatedFiles,
   type LocalFileSink
 } from '../observability/local-file-sink'
 
-const ACCEPTANCE_LOG_MAX_BYTES = 4 * 1024 * 1024
-const ACCEPTANCE_LOG_MAX_FILES = 4
+const EVENT_LOG_MAX_BYTES = 4 * 1024 * 1024
+const EVENT_LOG_MAX_FILES = 4
 
-export type AcceptanceEventSink = (event: AcceptanceEvent) => void
+export type OrchestrationEventSink = (event: OrchestrationEvent) => void
 
-export function createAcceptanceEvent(args: {
+export function createOrchestrationEvent(args: {
   sid: string
-  kind: AcceptanceEventKind
-  attribution: AcceptanceEventAttribution
+  kind: OrchestrationEventKind
+  attribution: OrchestrationEventAttribution
   payload: Record<string, unknown>
   parentEventId?: string | null
   vendor?: string | null
   vendorSid?: string | null
-}): AcceptanceEvent {
+}): OrchestrationEvent {
   return {
     eventId: randomUUID(),
     ts: new Date().toISOString(),
@@ -45,7 +46,9 @@ export function createAcceptanceEvent(args: {
     vendor: args.vendor ?? null,
     vendorSid: args.vendorSid ?? null,
     parentEventId: args.parentEventId ?? null,
-    causalityKey: `acceptance:${args.attribution.runId}`,
+    // Keyed by the event's own family so events from different writers on one
+    // run stay separable; it was `acceptance:` when gates were the only writer.
+    causalityKey: `${args.kind.split('.')[0]}:${args.attribution.runId}`,
     attribution: args.attribution,
     payload: args.payload
   }
@@ -53,34 +56,34 @@ export function createAcceptanceEvent(args: {
 
 let sink: LocalFileSink | null = null
 
-export function getAcceptanceEventLogSink(logsDirectory: string): LocalFileSink {
-  const filePath = buildAcceptanceEventLogPath(logsDirectory)
+export function getOrchestrationEventLogSink(logsDirectory: string): LocalFileSink {
+  const filePath = buildOrchestrationEventLogPath(logsDirectory)
   if (sink && sink.filePath === filePath) {
     return sink
   }
   sink?.close()
   sink = createLocalFileSink({
     filePath,
-    maxBytes: ACCEPTANCE_LOG_MAX_BYTES,
-    maxFiles: ACCEPTANCE_LOG_MAX_FILES
+    maxBytes: EVENT_LOG_MAX_BYTES,
+    maxFiles: EVENT_LOG_MAX_FILES
   })
   return sink
 }
 
-export function closeAcceptanceEventLogSink(): void {
+export function closeOrchestrationEventLogSink(): void {
   sink?.close()
   sink = null
 }
 
-function parseEventLines(content: string): AcceptanceEvent[] {
-  const events: AcceptanceEvent[] = []
+function parseEventLines(content: string): OrchestrationEvent[] {
+  const events: OrchestrationEvent[] = []
   for (const line of content.split('\n')) {
     if (line.trim().length === 0) {
       continue
     }
     try {
       const parsed: unknown = JSON.parse(line)
-      if (isAcceptanceEvent(parsed)) {
+      if (isOrchestrationEvent(parsed)) {
         events.push(parsed)
       }
     } catch {
@@ -91,12 +94,15 @@ function parseEventLines(content: string): AcceptanceEvent[] {
 }
 
 /** Newest-last, across the rotated family, capped at `limit`. */
-export function readAcceptanceEvents(logsDirectory: string, limit: number): AcceptanceEvent[] {
-  const filePath = buildAcceptanceEventLogPath(logsDirectory)
+export function readOrchestrationEvents(
+  logsDirectory: string,
+  limit: number
+): OrchestrationEvent[] {
+  const filePath = buildOrchestrationEventLogPath(logsDirectory)
   sink?.flush()
   // listRotatedFiles already includes the base file, newest first.
-  const files = listRotatedFiles(filePath, ACCEPTANCE_LOG_MAX_FILES)
-  const collected: AcceptanceEvent[] = []
+  const files = listRotatedFiles(filePath, EVENT_LOG_MAX_FILES)
+  const collected: OrchestrationEvent[] = []
   // Oldest rotation first so the concatenated order stays chronological.
   for (const candidate of files.toReversed()) {
     if (!existsSync(candidate)) {

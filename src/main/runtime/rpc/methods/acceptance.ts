@@ -6,7 +6,10 @@ import {
 } from '../../../../shared/acceptance-gate'
 import { LOCAL_EXECUTION_HOST_ID } from '../../../../shared/execution-host'
 import { runAcceptanceGate } from '../../../acceptance/gate-runner'
-import { getAcceptanceEventLogSink, readAcceptanceEvents } from '../../../acceptance/event-log'
+import {
+  getOrchestrationEventLogSink,
+  readOrchestrationEvents
+} from '../../../observability/orchestration-event-log'
 import { getLogsDirectory } from '../../../observability/logs-directory'
 
 const MAX_EVENT_LOG_LIMIT = 500
@@ -34,7 +37,7 @@ export const ACCEPTANCE_METHODS: readonly RpcMethod[] = [
       // Lazy: precheck-runner reaches Electron and the SSH stack through its
       // imports, and this module is loaded by every runtime method table.
       const { runAutomationPrecheck } = await import('../../../automations/precheck-runner')
-      const sink = getAcceptanceEventLogSink(getLogsDirectory())
+      const sink = getOrchestrationEventLogSink(getLogsDirectory())
       const checks: readonly AcceptanceCheckName[] = params.checks ?? ACCEPTANCE_CHECK_NAMES
       const result = await runAcceptanceGate({
         cwd: params.cwd,
@@ -53,7 +56,7 @@ export const ACCEPTANCE_METHODS: readonly RpcMethod[] = [
     name: 'acceptance.log',
     params: ReadAcceptanceLog,
     handler: (params) => {
-      const events = readAcceptanceEvents(getLogsDirectory(), params.limit)
+      const events = readOrchestrationEvents(getLogsDirectory(), params.limit)
       return { events, count: events.length }
     }
   })

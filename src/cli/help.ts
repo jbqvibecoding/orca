@@ -112,6 +112,11 @@ Workflows:
   workflow status           Show a task's current phase and whether it can advance
   workflow advance          Advance a task to its next phase
 
+Budgets:
+  budget show               Show budgets and what has been used against them
+  budget set                Cap spawns, tokens and spend for a run, or globally
+  budget clear              Remove a budget, leaving it uncapped
+
 Sessions (indexes this machine, including agents run outside Orca):
   sessions search           Search across agent sessions, whatever tool created them
   sessions list             List indexed agent sessions, most recently updated first
@@ -564,6 +569,18 @@ function formatCommandFlagHelp(flag: string, commandPath: string[]): string {
   }
   if (command === 'sessions reindex' && flag === 'full') {
     return '--full                 Re-read every session instead of only what changed'
+  }
+  if (command.startsWith('budget ') && flag === 'run') {
+    return '--run <id>             Run to budget; omit for the global ceiling'
+  }
+  if (command === 'budget set' && flag === 'max-spawns') {
+    return '--max-spawns <n>       Most spawns this budget allows; 0 refuses every spawn'
+  }
+  if (command === 'budget set' && flag === 'max-tokens') {
+    return '--max-tokens <n>       Token cap, measured by the usage scan (can lag)'
+  }
+  if (command === 'budget set' && flag === 'max-spend-usd') {
+    return '--max-spend-usd <n>    Spend cap in dollars, measured by the usage scan (can lag)'
   }
   if (flag === 'key' && command === 'computer hotkey') {
     return '--key <key-combo>      Modifier chord with one key, e.g. CmdOrCtrl+A'

@@ -96,6 +96,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   task_title    TEXT,
   display_name  TEXT,
   spec          TEXT NOT NULL,
+  -- ADR-0009: a task that was never approvable has no record of who approved it,
+  -- so the column exists from the start even though the single-machine product
+  -- leaves every row at 'not_required'.
+  approval_state TEXT NOT NULL DEFAULT 'not_required'
+    CHECK(approval_state IN ('not_required', 'pending', 'approved', 'rejected')),
+  approved_by   TEXT,
+  approved_at   TEXT,
   status        TEXT NOT NULL DEFAULT 'pending'
     CHECK(status IN (
       'pending', 'ready', 'dispatched',
@@ -149,6 +156,9 @@ CREATE TABLE IF NOT EXISTS dispatch_contexts (
   last_failure        TEXT,
   -- Why the process is gone, when Orca could establish it. See TerminalExitCause.
   termination_reason  TEXT,
+  -- ADR-0009: which budget this spawn drew against. Retroactive spend
+  -- attribution is impossible, so the column is written from the first release.
+  budget_id           TEXT,
   dispatched_at       TEXT,
   completed_at        TEXT,
   created_at          TEXT NOT NULL DEFAULT (datetime('now')),
@@ -158,6 +168,39 @@ CREATE TABLE IF NOT EXISTS dispatch_contexts (
 CREATE INDEX IF NOT EXISTS idx_dispatch_task ON dispatch_contexts(task_id);
 CREATE INDEX IF NOT EXISTS idx_dispatch_status ON dispatch_contexts(status);
 CREATE INDEX IF NOT EXISTS idx_dispatch_assignee_handle ON dispatch_contexts(assignee_handle);
+
+-- Why these live in this database and not beside the usage caches: the spawn
+-- claim is a transaction here, and a cap it cannot read inside that transaction
+-- could not be enforced without a separate check that double-spends under
+-- parallelism -- the exact failure ADR-0009 forbids.
+-- A NULL dimension is uncapped. Zero is a real cap that refuses everything.
+CREATE TABLE IF NOT EXISTS budgets (
+  id                TEXT PRIMARY KEY,
+  scope             TEXT NOT NULL CHECK(scope IN ('run', 'global')),
+  -- NULL for the global budget; there is at most one of those.
+  run_id            TEXT,
+  max_spawns        INTEGER,
+  max_tokens        INTEGER,
+  -- Money is integer micros. Floating-point dollars lose cents on the way through.
+  max_spend_micros  INTEGER,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_budgets_run ON budgets(run_id) WHERE run_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_budgets_global ON budgets(scope) WHERE scope = 'global';
+
+-- Why only two dimensions here: spawn count is derived by counting dispatch rows
+-- in the same transaction, so it is exact and has no second source to drift
+-- from. Tokens and spend come from the usage collector, which scans vendor
+-- transcripts after the fact, so they are stored observations that lag.
+CREATE TABLE IF NOT EXISTS budget_observations (
+  budget_id             TEXT PRIMARY KEY,
+  observed_tokens       INTEGER NOT NULL DEFAULT 0,
+  observed_spend_micros INTEGER NOT NULL DEFAULT 0,
+  observed_at           TEXT NOT NULL DEFAULT (datetime('now')),
+  source                TEXT
+);
 
 CREATE TABLE IF NOT EXISTS decision_gates (
   id            TEXT PRIMARY KEY,

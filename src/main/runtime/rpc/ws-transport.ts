@@ -3,6 +3,7 @@ import { createServer as createHttpsServer, type Server as HttpsServer } from 'n
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
 import type { RpcTransport } from './transport'
+import { composeHttpRequestListener, type ControlPlaneHandler } from './http-request-routing'
 import { createStaticWebClientHandler } from './static-web-client-handler'
 import { RemoteRuntimeServerHeartbeat } from './remote-runtime-server-heartbeat'
 
@@ -37,6 +38,10 @@ export type WebSocketTransportOptions = {
   preAuthTimeoutMs?: number
   // Why: the pairing server can also serve the browser client, avoiding a second static server.
   staticRoot?: string
+  // Why the same listener and not a second server: the control plane inherits
+  // this one's device-token auth, loopback-by-default bind and TLS instead of
+  // restating them (ADR-0009). Returns true when it handled the request.
+  controlPlane?: ControlPlaneHandler
   // Why: devices paired while the fallback port was active point at it, so it must bind first on later launches or those pairings strand (STA-1511).
   fallbackPort?: number
   // Why: serve --port clients dial the pinned port; prefer it first so a stale fallback can't steal the pin (issue #8535). Default keeps fallback-first (STA-1511).
@@ -51,6 +56,7 @@ export class WebSocketTransport implements RpcTransport {
   private readonly heartbeat: RemoteRuntimeServerHeartbeat
   private readonly preAuthTimeoutMs: number
   private readonly staticRoot: string | undefined
+  private readonly controlPlane: ControlPlaneHandler | undefined
   private readonly fallbackPort: number | undefined
   private readonly preferPinnedPort: boolean
   private httpServer: HttpsServer | HttpServer | null = null
@@ -73,6 +79,7 @@ export class WebSocketTransport implements RpcTransport {
     heartbeatNow,
     preAuthTimeoutMs,
     staticRoot,
+    controlPlane,
     fallbackPort,
     preferPinnedPort
   }: WebSocketTransportOptions) {
@@ -87,6 +94,7 @@ export class WebSocketTransport implements RpcTransport {
     )
     this.preAuthTimeoutMs = preAuthTimeoutMs ?? PRE_AUTH_TIMEOUT_MS
     this.staticRoot = staticRoot
+    this.controlPlane = controlPlane
     this.fallbackPort = fallbackPort
     this.preferPinnedPort = preferPinnedPort === true
   }
@@ -171,9 +179,10 @@ export class WebSocketTransport implements RpcTransport {
   }
 
   private createHttpServer(): HttpServer | HttpsServer {
-    const requestListener = this.staticRoot
-      ? createStaticWebClientHandler(this.staticRoot)
-      : undefined
+    const requestListener = composeHttpRequestListener({
+      ...(this.controlPlane ? { controlPlane: this.controlPlane } : {}),
+      ...(this.staticRoot ? { staticHandler: createStaticWebClientHandler(this.staticRoot) } : {})
+    })
     return this.tlsCert && this.tlsKey
       ? createHttpsServer({ cert: this.tlsCert, key: this.tlsKey }, requestListener)
       : createHttpServer(requestListener)

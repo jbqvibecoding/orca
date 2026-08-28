@@ -1,4 +1,5 @@
 import type { DispatchContextRow, WorkerDispatchRow } from '../../types'
+import { describeBudgetRefusal } from '../../../../../shared/budget-cap'
 import { OrchestrationError } from '../../orchestration-error'
 import { ensureMutationReceiptCapacity } from '../../mutation-receipt-capacity'
 import { CURRENT_CONTRACT_VERSION } from '../contract-constants'
@@ -81,6 +82,19 @@ export function createStartingWorkerDispatch(
       )
     }
 
+    // ADR-0009: the second spawn boundary. A plain read is safe here, unlike in
+    // createDispatchContext's savepoint, because BEGIN IMMEDIATE already took
+    // the write lock — there is no SHARED-to-RESERVED upgrade left to fail on.
+    // A retry reuses a dispatch that was already paid for, so it is not a new spawn.
+    const budget = params.retryOf ? { budgetId: null } : this.checkSpawnBudget(task.run_id)
+    if ('status' in budget && budget.status === 'refused') {
+      throw new OrchestrationError(
+        'budget_exhausted',
+        describeBudgetRefusal(budget.refusal, budget.scope),
+        { budgetId: budget.budgetId, dimension: budget.refusal.dimension }
+      )
+    }
+
     const id = generateId('ctx')
     if (params.mutationReceipt) {
       this.db
@@ -98,10 +112,17 @@ export function createStartingWorkerDispatch(
     this.db
       .prepare(
         `INSERT INTO dispatch_contexts (
-           id, run_id, task_id, contract_version, launch_token_hash, status, dispatched_at
-         ) VALUES (?, ?, ?, ?, ?, 'pending', datetime('now'))`
+           id, run_id, task_id, contract_version, launch_token_hash, budget_id, status, dispatched_at
+         ) VALUES (?, ?, ?, ?, ?, ?, 'pending', datetime('now'))`
       )
-      .run(id, task.run_id, task.id, CURRENT_CONTRACT_VERSION, params.launchTokenHash ?? null)
+      .run(
+        id,
+        task.run_id,
+        task.id,
+        CURRENT_CONTRACT_VERSION,
+        params.launchTokenHash ?? null,
+        budget.budgetId
+      )
     this.db
       .prepare(
         `INSERT INTO worker_dispatches (

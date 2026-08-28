@@ -11,9 +11,9 @@ import {
   isAcceptanceCheckName,
   summarizeAcceptanceCheck,
   type AcceptanceCheckName,
-  type AcceptanceEvent,
   type AcceptanceGateResult
 } from '../../shared/acceptance-gate'
+import type { OrchestrationEvent } from '../../shared/orchestration-event'
 
 /**
  * A valueless `--flag` parses as `true`, which the optional-string readers then
@@ -59,7 +59,7 @@ function formatGate(value: { gate: AcceptanceGateResult }): string {
   return lines.join('\n')
 }
 
-function formatEvents(value: { events: AcceptanceEvent[]; count: number }): string {
+function formatEvents(value: { events: OrchestrationEvent[]; count: number }): string {
   if (value.count === 0) {
     return 'No acceptance-gate events recorded yet.'
   }
@@ -84,7 +84,7 @@ export const ACCEPTANCE_HANDLERS: Record<string, CommandHandler> = {
     printResult(result, json, formatGate)
   },
   'acceptance log': async ({ flags, client, json }) => {
-    const result = await client.call<{ events: AcceptanceEvent[]; count: number }>(
+    const result = await client.call<{ events: OrchestrationEvent[]; count: number }>(
       'acceptance.log',
       { limit: getOptionalPositiveIntegerFlag(flags, 'limit') }
     )

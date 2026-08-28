@@ -243,6 +243,9 @@ export type MessageRow = {
   sender_pane_key: string | null
 }
 
+export const TASK_APPROVAL_STATES = ['not_required', 'pending', 'approved', 'rejected'] as const
+export type TaskApprovalState = (typeof TASK_APPROVAL_STATES)[number]
+
 export type TaskRow = {
   id: string
   run_id: string
@@ -254,6 +257,10 @@ export type TaskRow = {
   task_title: string | null
   display_name: string | null
   spec: string
+  /** ADR-0009 contract field. 'not_required' on every row until a control plane sets it. */
+  approval_state: TaskApprovalState
+  approved_by: string | null
+  approved_at: string | null
   status: TaskStatus
   deps: string
   result: string | null
@@ -278,6 +285,8 @@ export type DispatchContextRow = {
   /** Why the dispatch ended, when Orca could establish it — `operator_close`,
    *  `signaled`, `exited`, `unknown`. Null on rows written before STA-4603. */
   termination_reason: TerminalExitCause['kind'] | null
+  /** ADR-0009 contract field: which budget this spawn drew against. Null when none was set. */
+  budget_id: string | null
   dispatched_at: string | null
   completed_at: string | null
   created_at: string

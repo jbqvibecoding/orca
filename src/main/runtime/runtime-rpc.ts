@@ -12,6 +12,8 @@ import {
   watchRuntimeMetadataOwnership,
   type RuntimeMetadataOwnershipWatch
 } from './runtime-metadata-ownership-watch'
+import { createControlPlaneRouter, readBearerToken } from './rest/control-plane-router'
+import { createControlPlaneRoutes } from './rest/control-plane-routes'
 import { RpcDispatcher } from './rpc/dispatcher'
 import type { RpcAnyMethod, RpcRequest, RpcResponse } from './rpc/core'
 import { errorResponse } from './rpc/errors'
@@ -1268,6 +1270,15 @@ export class OrcaRuntimeRpcServer {
       host: options.host,
       port: options.port,
       staticRoot: this.webClientRoot,
+      // ADR-0009: same listener, same device tokens. The registry is the one
+      // already gating the mobile socket, so revoking a device closes both.
+      controlPlane: createControlPlaneRouter({
+        routes: createControlPlaneRoutes(() => this.runtime.getOrchestrationDb()),
+        authenticate: (request) => {
+          const token = readBearerToken(request)
+          return token !== null && deviceRegistry.validateToken(token) !== null
+        }
+      }),
       ...(options.fallbackPort !== undefined ? { fallbackPort: options.fallbackPort } : {}),
       ...(options.preferPinnedPort ? { preferPinnedPort: true } : {})
     })

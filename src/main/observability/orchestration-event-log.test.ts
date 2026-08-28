@@ -2,13 +2,13 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { buildAcceptanceEventLogPath } from '../../shared/acceptance-gate'
+import { buildOrchestrationEventLogPath } from '../../shared/orchestration-event'
 import {
-  closeAcceptanceEventLogSink,
-  createAcceptanceEvent,
-  getAcceptanceEventLogSink,
-  readAcceptanceEvents
-} from './event-log'
+  closeOrchestrationEventLogSink,
+  createOrchestrationEvent,
+  getOrchestrationEventLogSink,
+  readOrchestrationEvents
+} from './orchestration-event-log'
 
 let dir: string
 
@@ -16,21 +16,21 @@ beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'orca-acceptance-log-'))
 })
 afterEach(() => {
-  closeAcceptanceEventLogSink()
+  closeOrchestrationEventLogSink()
   rmSync(dir, { recursive: true, force: true })
 })
 
-const attribution = { runId: 'run-1', workspaceId: 'ws-1', hostId: 'local' }
+const attribution = { runId: 'run-1', workspaceId: 'ws-1', hostId: 'local', budgetId: null }
 
-function push(kind: Parameters<typeof createAcceptanceEvent>[0]['kind'], payload = {}) {
-  getAcceptanceEventLogSink(dir).push(
-    createAcceptanceEvent({ sid: 'run-1', kind, attribution, payload })
+function push(kind: Parameters<typeof createOrchestrationEvent>[0]['kind'], payload = {}) {
+  getOrchestrationEventLogSink(dir).push(
+    createOrchestrationEvent({ sid: 'run-1', kind, attribution, payload })
   )
 }
 
-describe('createAcceptanceEvent', () => {
+describe('createOrchestrationEvent', () => {
   it('stamps the envelope, including attribution and a causality key', () => {
-    const event = createAcceptanceEvent({
+    const event = createOrchestrationEvent({
       sid: 'run-1',
       kind: 'acceptance.gate.started',
       attribution,
@@ -55,7 +55,7 @@ describe('acceptance event log', () => {
   it('round-trips events through the NDJSON sink', () => {
     push('acceptance.gate.started', { cwd: '/tmp/app' })
     push('acceptance.gate.settled', { verdict: 'passed' })
-    const events = readAcceptanceEvents(dir, 50)
+    const events = readOrchestrationEvents(dir, 50)
     expect(events.map((event) => event.kind)).toEqual([
       'acceptance.gate.started',
       'acceptance.gate.settled'
@@ -65,8 +65,8 @@ describe('acceptance event log', () => {
 
   it('writes one JSON object per line', () => {
     push('acceptance.gate.started')
-    getAcceptanceEventLogSink(dir).flush()
-    const raw = readFileSync(buildAcceptanceEventLogPath(dir), 'utf-8')
+    getOrchestrationEventLogSink(dir).flush()
+    const raw = readFileSync(buildOrchestrationEventLogPath(dir), 'utf-8')
     const lines = raw.split('\n').filter((line) => line.length > 0)
     expect(lines).toHaveLength(1)
     expect(() => JSON.parse(lines[0])).not.toThrow()
@@ -76,34 +76,34 @@ describe('acceptance event log', () => {
     push('acceptance.gate.started', { seq: 1 })
     push('acceptance.check.settled', { seq: 2 })
     push('acceptance.gate.settled', { seq: 3 })
-    const events = readAcceptanceEvents(dir, 2)
+    const events = readOrchestrationEvents(dir, 2)
     expect(events.map((event) => event.payload.seq)).toEqual([2, 3])
   })
 
   it('skips a torn final line instead of failing the read', () => {
     push('acceptance.gate.started', { seq: 1 })
-    getAcceptanceEventLogSink(dir).flush()
-    appendFileSync(buildAcceptanceEventLogPath(dir), '{"eventId":"partial"', 'utf-8')
-    const events = readAcceptanceEvents(dir, 50)
+    getOrchestrationEventLogSink(dir).flush()
+    appendFileSync(buildOrchestrationEventLogPath(dir), '{"eventId":"partial"', 'utf-8')
+    const events = readOrchestrationEvents(dir, 50)
     expect(events).toHaveLength(1)
     expect(events[0].payload).toEqual({ seq: 1 })
   })
 
   it('ignores lines that parse but are not acceptance events', () => {
     push('acceptance.gate.started', { seq: 1 })
-    getAcceptanceEventLogSink(dir).flush()
-    appendFileSync(buildAcceptanceEventLogPath(dir), '{"hello":"world"}\n', 'utf-8')
-    expect(readAcceptanceEvents(dir, 50)).toHaveLength(1)
+    getOrchestrationEventLogSink(dir).flush()
+    appendFileSync(buildOrchestrationEventLogPath(dir), '{"hello":"world"}\n', 'utf-8')
+    expect(readOrchestrationEvents(dir, 50)).toHaveLength(1)
   })
 
   it('returns nothing when no log exists yet', () => {
-    expect(readAcceptanceEvents(dir, 50)).toEqual([])
+    expect(readOrchestrationEvents(dir, 50)).toEqual([])
   })
 
   it('reuses one sink per path and reopens after close', () => {
-    const first = getAcceptanceEventLogSink(dir)
-    expect(getAcceptanceEventLogSink(dir)).toBe(first)
-    closeAcceptanceEventLogSink()
-    expect(getAcceptanceEventLogSink(dir)).not.toBe(first)
+    const first = getOrchestrationEventLogSink(dir)
+    expect(getOrchestrationEventLogSink(dir)).toBe(first)
+    closeOrchestrationEventLogSink()
+    expect(getOrchestrationEventLogSink(dir)).not.toBe(first)
   })
 })

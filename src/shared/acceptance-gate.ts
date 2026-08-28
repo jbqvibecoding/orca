@@ -7,8 +7,6 @@
 //
 // See docs/fusion/adr/ADR-0005-acceptance-gates-and-event-log.md.
 
-import { join } from 'node:path'
-
 /**
  * The only commands an acceptance gate may run.
  *
@@ -73,62 +71,6 @@ export function rollUpAcceptanceVerdict(
     return 'unverifiable'
   }
   return checks.some((check) => check.verdict === 'passed') ? 'passed' : 'skipped'
-}
-
-export const ACCEPTANCE_EVENT_KINDS = [
-  'acceptance.gate.started',
-  'acceptance.check.settled',
-  'acceptance.gate.settled'
-] as const
-export type AcceptanceEventKind = (typeof ACCEPTANCE_EVENT_KINDS)[number]
-
-/**
- * Carried on every event from the first release.
- *
- * ADR-0009: spend and approval attribution cannot be backfilled onto records
- * that were written without it, so the fields exist before anything reads them.
- */
-export type AcceptanceEventAttribution = {
-  runId: string
-  workspaceId: string | null
-  hostId: string
-}
-
-/** Envelope from oh-my-agent's event-spec, plus `attribution`. */
-export type AcceptanceEvent = {
-  eventId: string
-  ts: string
-  sid: string
-  kind: AcceptanceEventKind
-  writerPid: number
-  vendor: string | null
-  vendorSid: string | null
-  parentEventId: string | null
-  causalityKey: string
-  attribution: AcceptanceEventAttribution
-  payload: Record<string, unknown>
-}
-
-export const ACCEPTANCE_EVENT_LOG_FILE_NAME = 'acceptance-events.ndjson'
-
-/** Callers pass the logs directory so this module stays free of Electron. */
-export function buildAcceptanceEventLogPath(logsDirectory: string): string {
-  return join(logsDirectory, ACCEPTANCE_EVENT_LOG_FILE_NAME)
-}
-
-export function isAcceptanceEvent(value: unknown): value is AcceptanceEvent {
-  if (value === null || typeof value !== 'object') {
-    return false
-  }
-  const record = value as Record<string, unknown>
-  return (
-    typeof record.eventId === 'string' &&
-    typeof record.ts === 'string' &&
-    typeof record.kind === 'string' &&
-    (ACCEPTANCE_EVENT_KINDS as readonly string[]).includes(record.kind) &&
-    record.attribution !== null &&
-    typeof record.attribution === 'object'
-  )
 }
 
 export function summarizeAcceptanceCheck(check: AcceptanceCheckResult): string {

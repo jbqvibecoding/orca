@@ -2,6 +2,7 @@ import type { CommandSpec } from '../args'
 import { ACCEPTANCE_COMMAND_SPECS } from './acceptance'
 import { WORKFLOW_COMMAND_SPECS } from './workflow'
 import { SESSIONS_COMMAND_SPECS } from './sessions'
+import { BUDGET_COMMAND_SPECS } from './budget'
 import { ACCOUNT_COMMAND_SPECS } from './account'
 import { DELEGATE_COMMAND_SPECS } from './delegate'
 import { BROWSER_ADVANCED_COMMAND_SPECS } from './browser-advanced'
@@ -29,6 +30,7 @@ export const COMMAND_SPECS: CommandSpec[] = [
   ...ACCEPTANCE_COMMAND_SPECS,
   ...WORKFLOW_COMMAND_SPECS,
   ...SESSIONS_COMMAND_SPECS,
+  ...BUDGET_COMMAND_SPECS,
   ...DELEGATE_COMMAND_SPECS,
   ...PROJECT_COMMAND_SPECS,
   ...FILE_COMMAND_SPECS,

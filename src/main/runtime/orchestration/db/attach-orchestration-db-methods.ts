@@ -1,3 +1,4 @@
+import { attachBudgetStore } from './budgets/budget-store'
 import { attachCoordinatorRunStore } from './coordinator-runs/coordinator-run-store'
 import { attachDecisionGateStore } from './decision-gates/decision-gate-store'
 import { attachDispatchCapability } from './dispatch-context/dispatch-capability'
@@ -121,5 +122,6 @@ export function attachOrchestrationDbMethods(ctor: { prototype: object }): void 
   attachWorkerReportSettlement(ctor)
   attachDecisionGateStore(ctor)
   attachCoordinatorRunStore(ctor)
+  attachBudgetStore(ctor)
   attachOrchestrationReset(ctor)
 }

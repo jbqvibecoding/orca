@@ -98,6 +98,19 @@ a platform floor in `docs/reference/`.
 state recorded, rather than silently continuing. The REST contract is consumed
 by something other than Orca's own UI at least once.
 
+**Status: landed**, with one clause met narrowly. Budget enforcement sits inside
+both spawn claims' existing transactions, so the check and the claim settle
+together; exhaustion writes a `budget.exhausted` event carrying what was already
+spent. The REST contract is driven end to end over real HTTP by
+`control-plane-routes.test.ts`, which establishes it is consumable by an ordinary
+HTTP client — **not** that paperclip, or any other external control plane, has
+been connected. That integration remains undone.
+
+Two things the phase deliberately makes visible rather than smoothing over:
+spawn counts are exact while token and spend figures lag the usage scan by up to
+one pass, and the three ADR-0009 contract fields did not in fact all land in
+P1–P3 (see that ADR's amendment).
+
 ## Continuous, not phased
 
 Two items have no phase because they attach to whatever else is being built:

@@ -1,3 +1,4 @@
+import type { BudgetStoreMethods } from './budgets/budget-store'
 import type { CoordinatorRunStoreMethods } from './coordinator-runs/coordinator-run-store'
 import type { DecisionGateStoreMethods } from './decision-gates/decision-gate-store'
 import type { DispatchCapabilityMethods } from './dispatch-context/dispatch-capability'
@@ -119,5 +120,6 @@ export type OrchestrationDbMethods = CreateTablesMethods &
   DispatchCompletionMethods &
   WorkerReportSettlementMethods &
   DecisionGateStoreMethods &
+  BudgetStoreMethods &
   CoordinatorRunStoreMethods &
   OrchestrationResetMethods
