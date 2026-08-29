@@ -186,3 +186,31 @@ What it cannot inherit is that listener's per-device E2EE, which a REST request
 has no way to carry. That difference is documented in
 [`docs/reference/control-plane-rest.md`](../../reference/control-plane-rest.md)
 rather than left to be discovered.
+
+### Correction: only the spawn dimension enforces today
+
+The amendment above describes the token and spend dimensions as lagging by one
+usage scan. That understates it. Reviewing the shipped code for production
+callers found that **nothing writes `budget_observations` at all**, so those two
+caps are accepted, stored, and never fire. Only the spawn count enforces end to
+end.
+
+`budget-usage-feed.ts` converts a measured `AutomationRunUsage` into an
+observation and is tested, but has no caller, and the reason is attribution
+rather than plumbing: the usage collector aggregates by worktree, and the
+delegation path reports the ywcrew sidecar's own run id (`r-…`), which is a
+different namespace from an Orca orchestration run (`run_…`). Nowhere in the
+product does a run id sit next to a measured figure. Choosing a mapping is a
+design decision, and guessing one would charge the wrong run's budget — worse
+than a cap that visibly does nothing, because it would look like it worked.
+
+Rather than wire a guess, the limitation is stated where someone would be
+misled: `orca budget set` warns when a token or spend cap is given,
+`orca budget show` labels those dimensions as not enforced, the module header
+says so, and `docs/reference/control-plane-rest.md` has a section on it.
+
+A second, smaller correction: `TaskDispatchResult` gained `'budget-exhausted'`
+without its caller in `coordinator.ts` being updated, so a refusal took the
+branch meant for a successful dispatch. That is fixed. The consequence was
+narrower than it first appeared — the terminal list is rebuilt every tick, so
+the lost slot returned one poll later rather than permanently.

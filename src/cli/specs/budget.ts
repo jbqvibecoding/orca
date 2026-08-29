@@ -4,7 +4,7 @@ import { GLOBAL_FLAGS } from '../args'
 const SCOPE_FLAGS = ['cwd', 'host'] as const
 
 const LAG_NOTE =
-  'Spawn counts are exact. Token and spend figures come from the usage scan, so they can lag work still in flight.'
+  'Only the spawn cap is enforced today. Nothing measures tokens or spend yet, so those caps are recorded but never refuse a spawn.'
 
 export const BUDGET_COMMAND_SPECS: CommandSpec[] = [
   {
@@ -36,7 +36,8 @@ export const BUDGET_COMMAND_SPECS: CommandSpec[] = [
       'Without --run the cap is the global ceiling, which applies on top of every run budget.',
       'A cap you leave out is cleared, so each command states the whole budget.',
       'Zero is a real cap that refuses every spawn; use `orca budget clear` to remove one instead.',
-      'The next spawn past a cap is refused before it starts. Work already running is never interrupted.'
+      'The next spawn past a cap is refused before it starts. Work already running is never interrupted.',
+      LAG_NOTE
     ]
   },
   {

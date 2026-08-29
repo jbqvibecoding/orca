@@ -3,6 +3,8 @@ import { defineMethod, type RpcMethod } from '../core'
 import { OptionalFiniteNumber, OptionalString, requiredString } from '../schemas'
 import type { GateStatus } from '../../orchestration/db'
 import { Coordinator } from '../../orchestration/coordinator'
+import { getOrchestrationEventLogSink } from '../../../observability/orchestration-event-log'
+import { getLogsDirectory } from '../../../observability/logs-directory'
 import { resolveRunScope } from './orchestration-run-scope'
 import { OrchestrationError } from '../../orchestration/orchestration-error'
 
@@ -65,7 +67,17 @@ export const ORCHESTRATION_GATE_METHODS: RpcMethod[] = [
         coordinatorHandle,
         pollIntervalMs: params.pollIntervalMs,
         maxConcurrent: params.maxConcurrent,
-        worktree: params.worktree
+        worktree: params.worktree,
+        // ADR-0009: without a real sink a refused spawn leaves no trace, which
+        // is indistinguishable afterwards from a silent continue.
+        emitEvent: (event) => {
+          // Flushed immediately rather than left batched: exhaustion is rare, so
+          // the cost is nil, and a record lost to a buffer on exit would defeat
+          // the point of writing it.
+          const sink = getOrchestrationEventLogSink(getLogsDirectory())
+          sink.push(event)
+          sink.flush()
+        }
       })
 
       activeCoordinator = coordinator

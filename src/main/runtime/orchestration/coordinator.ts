@@ -1,4 +1,5 @@
 import type { OrchestrationDb } from './db'
+import type { OrchestrationEventSink } from '../../observability/orchestration-event-log'
 import type { MessageRow, CoordinatorStatus } from './types'
 import { reconcileLifecycleMessage } from './lifecycle-reconciliation'
 import type { CoordinatorRuntime, WorktreeDrift } from './coordinator-runtime-contract'
@@ -21,6 +22,10 @@ export type CoordinatorOptions = {
   maxConcurrent?: number
   worktree?: string
   onLog?: (msg: string) => void
+  // ADR-0009: where a refused spawn is recorded. Optional so a unit-test
+  // coordinator does not have to write a real log file; production supplies the
+  // orchestration event log, without which exhaustion leaves no trace.
+  emitEvent?: OrchestrationEventSink
 }
 
 type CoordinatorState = {
@@ -39,9 +44,10 @@ export class Coordinator {
   private runtime: CoordinatorRuntime
   private state: CoordinatorState
   private stopped = false
-  private opts: Required<Omit<CoordinatorOptions, 'onLog' | 'worktree'>> & {
+  private opts: Required<Omit<CoordinatorOptions, 'onLog' | 'worktree' | 'emitEvent'>> & {
     onLog: (msg: string) => void
     worktree?: string
+    emitEvent?: OrchestrationEventSink
   }
 
   constructor(db: OrchestrationDb, runtime: CoordinatorRuntime, options: CoordinatorOptions) {
@@ -53,7 +59,8 @@ export class Coordinator {
       pollIntervalMs: options.pollIntervalMs ?? DEFAULT_POLL_MS,
       maxConcurrent: options.maxConcurrent ?? MAX_CONCURRENT_DEFAULT,
       worktree: options.worktree,
-      onLog: options.onLog ?? (() => {})
+      onLog: options.onLog ?? (() => {}),
+      emitEvent: options.emitEvent
     }
     this.state = {
       runId: '',
@@ -284,9 +291,13 @@ export class Coordinator {
           coordinatorHandle: this.opts.coordinatorHandle,
           worktree: this.opts.worktree,
           onLog: this.opts.onLog,
-          onCircuitBroken: (taskId) => this.state.failedTasks.push(taskId)
+          onCircuitBroken: (taskId) => this.state.failedTasks.push(taskId),
+          ...(this.opts.emitEvent ? { emitEvent: this.opts.emitEvent } : {})
         })
-        if (result === 'stale-base-refused') {
+        // Two different reasons, one consequence for this loop: nothing was
+        // dispatched and the task is still ready, so the terminal goes back to
+        // the pool and the phase must not advance as if work had started.
+        if (result === 'stale-base-refused' || result === 'budget-exhausted') {
           terminals.unshift(targetHandle)
           slotsAvailable++
         } else {

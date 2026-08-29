@@ -73,8 +73,9 @@ distinguishes them rather than presenting three equally-current figures:
 | Spend | The usage collector's transcript scan | Up to one scan |
 
 `observed.observedAt` is when the lagging two were measured, and is `null` when
-they never have been. **The bound on overshoot is the work in flight between one
-scan and the next**: enforcement happens at the spawn boundary, so a cap stops
+they never have been — which today is **always**: see the limitation below.
+
+**The bound on overshoot is the work in flight between one scan and the next**: enforcement happens at the spawn boundary, so a cap stops
 the *next* spawn, never the ones already running. ADR-0009 chose that boundary
 deliberately — interrupting a running agent wastes the work and leaves a worktree
 in an undefined state.
@@ -101,6 +102,22 @@ curl -sS -X POST -H "Authorization: Bearer $TOKEN" -H 'content-type: application
 
 The same operations are available locally as `orca budget show|set|clear`, which
 goes over the runtime's own RPC rather than HTTP.
+
+## Only the spawn dimension enforces today
+
+A token or spend cap is accepted, stored and returned by these routes, but
+**nothing writes `budget_observations` in production**, so those caps never
+refuse a spawn. Only the spawn count is enforced end to end.
+
+The blocker is attribution rather than plumbing. The conversion from measured
+usage to a budget observation exists and is tested
+(`src/main/runtime/orchestration/budget-usage-feed.ts`), but it has no caller:
+the usage collector aggregates by worktree, and the delegation path reports the
+sidecar's own run id, so no existing place holds an Orca orchestration run id
+next to a measured figure. Wiring one needs a run-to-usage mapping chosen
+deliberately; guessing would charge the wrong run's budget, which is worse than
+a cap that visibly does nothing. `orca budget set` and `orca budget show` both
+say this at the point a user would otherwise be misled.
 
 ## Not verified
 

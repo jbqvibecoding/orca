@@ -9,6 +9,16 @@
 // Reuses AutomationRunUsage rather than defining a parallel shape, including its
 // `unavailable` status: a provider that could not be measured must not be
 // recorded as having spent nothing.
+//
+// NOT WIRED YET, and that is deliberate rather than forgotten. Nothing in
+// production calls this, so token and spend caps accept a value and never fire;
+// only the spawn-count dimension enforces today. The blocker is attribution, not
+// plumbing: the usage collector aggregates by worktree and the delegation path
+// carries the sidecar's own run id, so nowhere does an Orca orchestration run id
+// meet a measured figure. Wiring it needs a run-to-usage mapping decided on
+// purpose -- guessing one would silently charge the wrong run's budget, which is
+// worse than a cap that visibly does nothing. `orca budget set` and
+// `orca budget show` both say so at the point a user would otherwise be misled.
 
 import { MICROS_PER_USD } from '../../../shared/budget-cap'
 import type { AutomationRunUsage } from '../../../shared/automations-types'

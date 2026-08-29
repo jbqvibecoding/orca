@@ -47,11 +47,18 @@ function formatBudgets(value: { budgets: BudgetView[] }): string {
       ]
       // Saying when the lagging figures were measured is the difference between
       // a number and a number someone can act on.
-      lines.push(
-        budget.observedAt === null
-          ? '  tokens and spend have not been measured yet; spawn count is exact'
-          : `  tokens and spend measured ${budget.observedAt}; spawn count is exact`
-      )
+      // Never leave a cap looking live when nothing feeds it: a user who set
+      // --max-tokens and saw no warning would reasonably believe it applies.
+      const capped = budget.maxTokens !== null || budget.maxSpendMicros !== null
+      if (budget.observedAt === null) {
+        lines.push(
+          capped
+            ? '  NOTE: spawn count is enforced. Nothing measures tokens or spend yet, so those caps do not fire.'
+            : '  spawn count is exact; tokens and spend have not been measured'
+        )
+      } else {
+        lines.push(`  tokens and spend measured ${budget.observedAt}; spawn count is exact`)
+      }
       return lines.join('\n')
     })
     .join('\n\n')
@@ -80,11 +87,20 @@ export const BUDGET_HANDLERS: Record<string, CommandHandler> = {
         maxSpendUsd: getOptionalNumberFlag(flags, 'max-spend-usd') ?? null
       }
     )
-    printResult(result, json, (value) =>
-      value.scope === 'global'
-        ? 'Global ceiling set. It applies on top of every run budget.'
-        : `Budget set for run ${value.runId}.`
-    )
+    const inertCap =
+      getOptionalNonNegativeIntegerFlag(flags, 'max-tokens') !== undefined ||
+      getOptionalNumberFlag(flags, 'max-spend-usd') !== undefined
+    printResult(result, json, (value) => {
+      const scope =
+        value.scope === 'global'
+          ? 'Global ceiling set. It applies on top of every run budget.'
+          : `Budget set for run ${value.runId}.`
+      // Recording a cap that cannot fire and saying nothing would be the
+      // worst outcome here: it reads as protection that is not there.
+      return inertCap
+        ? `${scope}\n\nNOTE: the spawn cap is enforced, but nothing measures tokens or spend yet,\nso those caps are recorded and will not refuse anything.`
+        : scope
+    })
   },
 
   'budget clear': async ({ flags, client, json }) => {
